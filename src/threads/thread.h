@@ -93,10 +93,15 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    int sleep_time;
+    struct semaphore *semaphore;
+    struct list_elem sleep_elem;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
+
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
@@ -111,6 +116,9 @@ void thread_init (void);
 void thread_start (void);
 
 void thread_tick (void);
+void push_to_sleep_thread_list(struct list_elem *);
+void wake_threads();
+bool thread_compare(const struct list_elem *a, const struct list_elem *b, void *aux);
 void thread_print_stats (void);
 
 typedef void thread_func (void *aux);

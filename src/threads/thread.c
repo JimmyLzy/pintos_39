@@ -28,6 +28,8 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+static struct list sleep_thread_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -92,6 +94,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&sleep_thread_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -137,6 +140,46 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+}
+
+void push_to_sleep_thread_list(struct list_elem *e) {
+  list_insert_ordered(&sleep_thread_list, e, thread_compare, 0);
+}
+
+void
+wake_threads()
+{
+  if (!list_empty(&sleep_thread_list)) {
+    struct list_elem *e;
+    e = list_begin (&sleep_thread_list);
+    struct thread *thread_current = list_entry(e, struct thread, sleep_elem);
+
+//    if (thread_current->sleep_time <= 0) {
+//      sema_up(thread_current->semaphore);
+//      list_pop_front(&sleep_thread_list);
+//    }
+
+    for (e = list_begin (&sleep_thread_list); e != list_end (&sleep_thread_list); e = list_next (e))
+    {
+      thread_current = list_entry(e, struct thread, sleep_elem);
+      thread_current->sleep_time--;
+      if (thread_current->sleep_time <= 0) {
+        sema_up(thread_current->semaphore);
+        list_remove(e);
+      }
+    }
+
+  }
+}
+
+bool
+thread_compare(const struct list_elem *a,
+               const struct list_elem *b,
+               void *aux)
+{
+  struct thread *thread_a = list_entry (a, struct thread, sleep_elem);
+  struct thread *thread_b = list_entry (b, struct thread, sleep_elem);
+  return (thread_a->sleep_time <= thread_b->sleep_time);
 }
 
 /* Prints thread statistics. */
