@@ -85,33 +85,20 @@ timer_elapsed (int64_t then)
 
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
-/*void
-timer_sleep (int64_t ticks)
-{
-  int64_t start = timer_ticks ();
-
-  ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks)
-    thread_yield ();
-}*/
-
 void
 timer_sleep (int64_t ticks)
 {
 //  int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-
   enum intr_level old_level = intr_disable ();
 
   struct semaphore sema;
   struct semaphore *sema_pointer = &sema;
-  struct list_elem list_sleep_elem;
   sema_init(sema_pointer, 0);
 
   thread_current()->sleep_time = ticks;
   thread_current()->semaphore = sema_pointer;
-  thread_current()->sleep_elem = list_sleep_elem;
 
   push_to_sleep_thread_list(&(thread_current()->sleep_elem));
 
@@ -119,8 +106,6 @@ timer_sleep (int64_t ticks)
 
   intr_set_level (old_level);
 }
-
-
 
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -192,7 +177,7 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
+
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
@@ -200,17 +185,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   wake_threads();
   thread_tick ();
-
-
-  //thread_current->sleep_time--;
-  //ASSERT(thread_current->status == THREAD_BLOCKED);
-
-/*  while ((e = list_next (e)) != list_end (thread_sleep_list)) {
-    ((list_entry (e, struct thread, elem))->sleep_time)--;
-  }*/
-
 }
-
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */

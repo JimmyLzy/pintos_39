@@ -28,6 +28,7 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+/*List of all sleeping threads*/
 static struct list sleep_thread_list;
 
 /* Idle thread. */
@@ -142,22 +143,22 @@ thread_tick (void)
     intr_yield_on_return ();
 }
 
-void push_to_sleep_thread_list(struct list_elem *e) {
+/*push the sleep_elem of a sleeping thread into the
+ sleep_thread_list in ascending order accoding to their sleep_time*/
+void
+push_to_sleep_thread_list (struct list_elem *e)
+{
   list_insert_ordered(&sleep_thread_list, e, thread_compare, 0);
 }
 
+/*wake up threads if their sleep_time < 0*/
 void
-wake_threads()
+wake_threads (void)
 {
   if (!list_empty(&sleep_thread_list)) {
     struct list_elem *e;
     e = list_begin (&sleep_thread_list);
     struct thread *thread_current = list_entry(e, struct thread, sleep_elem);
-
-//    if (thread_current->sleep_time <= 0) {
-//      sema_up(thread_current->semaphore);
-//      list_pop_front(&sleep_thread_list);
-//    }
 
     for (e = list_begin (&sleep_thread_list); e != list_end (&sleep_thread_list); e = list_next (e))
     {
@@ -168,12 +169,13 @@ wake_threads()
         list_remove(e);
       }
     }
-
   }
 }
 
+/*compare two thread according to their sleep_time,
+ return true if the sleep_time of the first thread is less than the second*/
 bool
-thread_compare(const struct list_elem *a,
+thread_compare (const struct list_elem *a,
                const struct list_elem *b,
                void *aux)
 {
