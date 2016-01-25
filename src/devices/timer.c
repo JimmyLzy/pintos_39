@@ -88,21 +88,21 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks)
 {
-//  int64_t start = timer_ticks ();
+
+  int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
   enum intr_level old_level = intr_disable ();
 
   struct semaphore sema;
-  struct semaphore *sema_pointer = &sema;
-  sema_init(sema_pointer, 0);
+  sema_init(&sema, 0);
 
-  thread_current()->sleep_time = ticks;
-  thread_current()->semaphore = sema_pointer;
+  thread_current()->sleep_time = ticks + start;
+  thread_current()->semaphore = &sema;
 
   push_to_sleep_thread_list(&(thread_current()->sleep_elem));
 
-  sema_down(sema_pointer);
+  sema_down(&sema);
 
   intr_set_level (old_level);
 }

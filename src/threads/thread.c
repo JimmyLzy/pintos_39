@@ -144,32 +144,33 @@ thread_tick (void)
 }
 
 /*push the sleep_elem of a sleeping thread into the
- sleep_thread_list in ascending order accoding to their sleep_time*/
+  sleep_thread_list in ascending order accoding to their sleep_time*/
 void
 push_to_sleep_thread_list (struct list_elem *e)
 {
   list_insert_ordered(&sleep_thread_list, e, thread_compare, 0);
 }
 
-/*wake up threads if their sleep_time < 0*/
+/*Iterate through the list of sleeping thread. If the sleep_time in 
+  current thread is less than current timer ticks, turn the semaphore 
+  in the current thread up and remove the thread from the sleeping 
+  thread list.*/
 void
 wake_threads (void)
 {
-  if (!list_empty(&sleep_thread_list)) {
-    struct list_elem *e;
-    e = list_begin (&sleep_thread_list);
+    int64_t current_time = timer_ticks ();
+    
+    struct list_elem *e = list_begin (&sleep_thread_list);
     struct thread *thread_current = list_entry(e, struct thread, sleep_elem);
 
-    for (e = list_begin (&sleep_thread_list); e != list_end (&sleep_thread_list); e = list_next (e))
+    while (thread_current->sleep_time <= current_time && 
+                      e != list_end (&sleep_thread_list)) 
     {
+      sema_up(thread_current->semaphore);
+      list_remove(e);
+      e = list_next (e);
       thread_current = list_entry(e, struct thread, sleep_elem);
-      thread_current->sleep_time--;
-      if (thread_current->sleep_time <= 0) {
-        sema_up(thread_current->semaphore);
-        list_remove(e);
-      }
     }
-  }
 }
 
 /*compare two thread according to their sleep_time,
