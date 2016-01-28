@@ -144,7 +144,7 @@ thread_tick (void)
 }
 
 /*push the sleep_elem of a sleeping thread into the
-  sleep_thread_list in ascending order accoding to their sleep_time*/
+  sleep_thread_list in ascending order according to their sleep_time*/
 void
 push_to_sleep_thread_list (struct list_elem *e)
 {
@@ -159,18 +159,31 @@ void
 wake_threads (void)
 {
     int64_t current_time = timer_ticks ();
+    struct list waiting_list;
+    list_init(&waiting_list);
     
-    struct list_elem *e = list_begin (&sleep_thread_list);
-    struct thread *thread_current = list_entry(e, struct thread, sleep_elem);
+    if (!list_empty(&sleep_thread_list)) {
+        printf("==\n");
+        struct list_elem *e = list_begin (&sleep_thread_list);
+        struct thread *thread_current = list_entry(e, struct thread, sleep_elem);
+        while (thread_current->sleep_time <= current_time && e != list_end (&sleep_thread_list)) {
+            //sema_up(thread_current->semaphore);
+            list_insert_ordered(&waiting_list, e, priority_compare, 0);
+            list_remove(e);
+            e = list_next (e);
+            thread_current = list_entry(e, struct thread, sleep_elem);
+        }
 
-    while (thread_current->sleep_time <= current_time && 
-                      e != list_end (&sleep_thread_list)) 
-    {
-      sema_up(thread_current->semaphore);
-      list_remove(e);
-      e = list_next (e);
-      thread_current = list_entry(e, struct thread, sleep_elem);
+        struct list_elem *e2 = list_begin (&waiting_list);
+                struct thread *thread_current2 = list_entry(e2, struct thread, sleep_elem);
+                while (e2 != list_end (&waiting_list)) {
+                    sema_up(thread_current2->semaphore);
+                    e2 = list_next (e2);
+                    thread_current2 = list_entry(e2, struct thread, sleep_elem);
+                }
+
     }
+
 }
 
 /*compare two thread according to their sleep_time,
@@ -182,15 +195,22 @@ thread_compare (const struct list_elem *a,
 {
   struct thread *thread_a = list_entry (a, struct thread, sleep_elem);
   struct thread *thread_b = list_entry (b, struct thread, sleep_elem);
-  return (thread_a->sleep_time <= thread_b->sleep_time);
+
+  if (thread_a->sleep_time < thread_b->sleep_time) {
+      return true;
+  } else if (thread_a->sleep_time == thread_b->sleep_time) {
+      return (thread_a->priority > thread_b->priority);
+  } else {
+      return false;
+  }
 }
 
 bool
-priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux)
+priority_compare (const struct list_elem *a, const struct list_elem *b, void *aux)
 {
-  struct thread *thread_a = list_entry (a, struct thread, sleep_elem);
-  struct thread *thread_b = list_entry (b, struct thread, sleep_elem);
-  return (thread_a->priority >= thread_b->priority);
+  struct thread *thread_a = list_entry (a, struct thread, elem);
+  struct thread *thread_b = list_entry (b, struct thread, elem);
+  return (thread_a->priority > thread_b->priority);
 }
 
 /* Prints thread statistics. */
@@ -261,7 +281,9 @@ thread_create (const char *name, int priority,
   intr_set_level (old_level);
 
   /* Add to run queue. */
-  thread_unblock (t);
+  thread_unblock(t);
+
+  printf("create thread: %s, priority: %d\n", name, priority);
 
   if (t->priority>thread_current()->priority)
     thread_yield();
@@ -280,7 +302,6 @@ thread_block (void)
 {
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
-
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
 }
@@ -299,7 +320,6 @@ thread_unblock (struct thread *t)
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
-
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   list_insert_ordered (&ready_list, &t->elem, priority_compare, 0);
@@ -373,7 +393,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem, priority_compare, 0);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -400,7 +420,8 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  printf("thread: %s, set priority: %d\n", thread_current()->name, thread_current()->priority);
+  thread_current()->priority = new_priority;
   struct thread *next_thread;
   if (!list_empty(&ready_list))
     next_thread = list_entry(list_front(&ready_list), struct thread, elem);
