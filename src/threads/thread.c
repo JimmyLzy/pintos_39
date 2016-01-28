@@ -163,7 +163,6 @@ wake_threads (void)
     list_init(&waiting_list);
     
     if (!list_empty(&sleep_thread_list)) {
-        printf("==\n");
         struct list_elem *e = list_begin (&sleep_thread_list);
         struct thread *thread_current = list_entry(e, struct thread, sleep_elem);
         while (thread_current->sleep_time <= current_time && e != list_end (&sleep_thread_list)) {
@@ -282,8 +281,6 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock(t);
-
-  printf("create thread: %s, priority: %d\n", name, priority);
 
   if (t->priority>thread_current()->priority)
     thread_yield();
@@ -420,7 +417,6 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  printf("thread: %s, set priority: %d\n", thread_current()->name, thread_current()->priority);
   thread_current()->priority = new_priority;
   struct thread *next_thread;
   if (!list_empty(&ready_list))
