@@ -89,22 +89,28 @@ void
 timer_sleep (int64_t ticks)
 {
 
-  int64_t start = timer_ticks ();
+//  int64_t start = timer_ticks ();
+//
+//  ASSERT (intr_get_level () == INTR_ON);
+//  enum intr_level old_level = intr_disable ();
+//
+//  struct semaphore sema;
+//  sema_init(&sema, 0);
+//
+//  thread_current()->sleep_time = ticks + start;
+//  thread_current()->semaphore = &sema;
+//
+//  push_to_sleep_thread_list(&(thread_current()->sleep_elem));
+//
+//  sema_down(&sema);
+//
+//  intr_set_level (old_level);
 
-  ASSERT (intr_get_level () == INTR_ON);
-  enum intr_level old_level = intr_disable ();
+    int64_t start = timer_ticks ();
+    ASSERT (intr_get_level () == INTR_ON);
+    while (timer_elapsed (start) < ticks)
+        thread_yield ();
 
-  struct semaphore sema;
-  sema_init(&sema, 0);
-
-  thread_current()->sleep_time = ticks + start;
-  thread_current()->semaphore = &sema;
-
-  push_to_sleep_thread_list(&(thread_current()->sleep_elem));
-
-  sema_down(&sema);
-
-  intr_set_level (old_level);
 }
 
 
@@ -183,7 +189,7 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-  wake_threads();
+  //wake_threads();
   thread_tick ();
 }
 
