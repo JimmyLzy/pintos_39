@@ -11,6 +11,10 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+
+#include "threads/fixed-point.h"
+#include "devices/timer.h"
+
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -61,6 +65,9 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
+
+/*System load average in 17.14 Fixed Point format*/
+static int32_t load_avg = 0;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -138,9 +145,34 @@ thread_tick (void)
   else
     kernel_ticks++;
 
+  /* Recalculate 4.4BSD Scheduler variables if the scheduler being used*/
+  if(thread_mlfqs) {
+    update_BSD_variables();
+  }
+
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+}
+
+void update_BSD_variables(void)
+{
+  struct thread *current_thread = thread_current();
+
+  if(timer_ticks() % TIMER_FREQ == 0) {
+    thread_calc_load_avg();
+    thread_foreach(&thread_calc_recent_cpu, NULL);
+  }
+
+  if(thread_current() != idle_thread) {
+    current_thread->recent_cpu 
+      = FIXED_POINT_ADD_INT(current_thread->recent_cpu, 1);
+  }
+
+  if(timer_ticks() % TIME_SLICE == 0) {
+    thread_foreach(&thread_calc_priority, NULL);
+  }
+
 }
 
 /*push the sleep_elem of a sleeping thread into the
@@ -254,6 +286,11 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+
+  if(t != idle_thread) {
+    t->nice = thread_current()->nice;
+    t->recent_cpu = thread_current()->recent_cpu;
+  }
 
   return tid;
 }
@@ -399,11 +436,39 @@ thread_get_priority (void)
   return thread_current ()->priority;
 }
 
+void
+thread_calc_priority (struct thread *thread)
+{
+  ASSERT(thread_mlfqs);
+
+  
+  int32_t fp_pri_max = CONVERT_INT_TO_FIXED_POINT(PRI_MAX);
+  int32_t fp_recent_cpu = CONVERT_INT_TO_FIXED_POINT(thread->recent_cpu);
+  int32_t fp_nice = CONVERT_INT_TO_FIXED_POINT(thread->nice);
+  fp_recent_cpu = FIXED_POINT_DIV_INT(fp_recent_cpu, 4);
+  fp_nice = FIXED_POINT_MUL_INT(fp_nice, 2);
+  fp_pri_max = FIXED_POINT_SUB_FIXED_POINT(fp_pri_max, 
+               FIXED_POINT_ADD_FIXED_POINT(fp_recent_cpu, fp_nice));
+  int result = FIXED_POINT_TO_INT_ROUND_TO_ZERO(fp_pri_max);
+
+  if (result > PRI_MAX) {
+    result = PRI_MAX;
+  } else if (result < PRI_MIN) {
+    result = PRI_MIN;
+  }
+  
+
+
+}
+
 /* Sets the current thread's nice value to NICE. */
 void
 thread_set_nice (int nice UNUSED) 
 {
   /* Not yet implemented. */
+  ASSERT (thread_mlfqs);
+  thread_current ()->nice = nice;
+  thread_calc_priority(thread_current());
 }
 
 /* Returns the current thread's nice value. */
@@ -411,7 +476,8 @@ int
 thread_get_nice (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  ASSERT (thread_mlfqs);
+  return thread_current ()->nice;
 }
 
 /* Returns 100 times the system load average. */
@@ -419,7 +485,33 @@ int
 thread_get_load_avg (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  ASSERT (thread_mlfqs);
+  int32_t result = FIXED_POINT_MUL_INT(load_avg, 100);
+  return FIXED_POINT_TO_INT_ROUND_TO_NEAREST(result);
+}
+
+void
+thread_calc_load_avg (void) 
+{
+  /* Not yet implemented. */
+  ASSERT (thread_mlfqs);
+  const int FIFTEEN_NINE = 59;
+  const int SIXTY = 60;
+  int32_t coefficient 
+    = FIXED_POINT_DIV_INT(CONVERT_INT_TO_FIXED_POINT(FIFTEEN_NINE), SIXTY);
+  load_avg = FIXED_POINT_MUL_FIXED_POINT(coefficient, load_avg);
+  coefficient = FIXED_POINT_DIV_INT(CONVERT_INT_TO_FIXED_POINT(1), SIXTY);
+
+  int num_of_ready_threads = list_size(&ready_list);
+
+  if(thread_current() != idle_thread) {
+    num_of_ready_threads++;
+  }
+
+  coefficient = FIXED_POINT_MUL_INT(coefficient, num_of_ready_threads);
+  load_avg = FIXED_POINT_ADD_FIXED_POINT(load_avg, coefficient);
+
+
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -427,8 +519,31 @@ int
 thread_get_recent_cpu (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  int32_t fp_recent_cpu = thread_current()->recent_cpu;
+  fp_recent_cpu = FIXED_POINT_MUL_INT(fp_recent_cpu, 100);
+  return FIXED_POINT_TO_INT_ROUND_TO_NEAREST(fp_recent_cpu);
 }
+
+void
+thread_calc_recent_cpu (struct thread *thread) 
+{
+  /* Not yet implemented. */
+
+  int32_t recent_cpu = thread->recent_cpu;
+
+  int32_t current_load_avg = load_avg;
+
+  int32_t coefficient = FIXED_POINT_MUL_INT(current_load_avg, 2);
+
+  coefficient = FIXED_POINT_DIV_FIXED_POINT(coefficient, 
+    FIXED_POINT_ADD_INT(coefficient, 1));
+
+  recent_cpu = FIXED_POINT_MUL_FIXED_POINT(coefficient, recent_cpu);
+  recent_cpu = FIXED_POINT_ADD_INT(recent_cpu, thread->nice);
+
+  thread->recent_cpu = recent_cpu;
+}
+
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -517,6 +632,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  if(thread_mlfqs) {
+    thread_calc_priority(t);
+  }
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
