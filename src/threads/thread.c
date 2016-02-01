@@ -187,35 +187,35 @@ push_to_sleep_thread_list (struct list_elem *e)
   current thread is less than current timer ticks, turn the semaphore 
   in the current thread up and remove the thread from the sleeping 
   thread list.*/
-void
-wake_threads (void)
-{
-    int64_t current_time = timer_ticks ();
-    struct list waiting_list;
-    list_init(&waiting_list);
-    
-    if (!list_empty(&sleep_thread_list)) {
-        struct list_elem *e = list_begin (&sleep_thread_list);
-        struct thread *thread_current = list_entry(e, struct thread, sleep_elem);
-        while (thread_current->sleep_time <= current_time && e != list_end (&sleep_thread_list)) {
-            //sema_up(thread_current->semaphore);
-            list_insert_ordered(&waiting_list, e, priority_compare, 0);
-            list_remove(e);
-            e = list_next (e);
-            thread_current = list_entry(e, struct thread, sleep_elem);
-        }
-
-        struct list_elem *e2 = list_begin (&waiting_list);
-                struct thread *thread_current2 = list_entry(e2, struct thread, sleep_elem);
-                while (e2 != list_end (&waiting_list)) {
-                    sema_up(thread_current2->semaphore);
-                    e2 = list_next (e2);
-                    thread_current2 = list_entry(e2, struct thread, sleep_elem);
-                }
-
-    }
-
-}
+//void
+//wake_threads (void)
+//{
+//    int64_t current_time = timer_ticks ();
+//    struct list waiting_list;
+//    list_init(&waiting_list);
+//
+//    if (!list_empty(&sleep_thread_list)) {
+//        struct list_elem *e = list_begin (&sleep_thread_list);
+//        struct thread *thread_current = list_entry(e, struct thread, sleep_elem);
+//        while (thread_current->sleep_time <= current_time && e != list_end (&sleep_thread_list)) {
+//            //sema_up(thread_current->semaphore);
+//            list_insert_ordered(&waiting_list, e, priority_compare, 0);
+//            list_remove(e);
+//            e = list_next (e);
+//            thread_current = list_entry(e, struct thread, sleep_elem);
+//        }
+//
+//        struct list_elem *e2 = list_begin (&waiting_list);
+//                struct thread *thread_current2 = list_entry(e2, struct thread, sleep_elem);
+//                while (e2 != list_end (&waiting_list)) {
+//                    sema_up(thread_current2->semaphore);
+//                    e2 = list_next (e2);
+//                    thread_current2 = list_entry(e2, struct thread, sleep_elem);
+//                }
+//
+//    }
+//
+//}
 
 /*compare two thread according to their sleep_time,
  return true if the sleep_time of the first thread is less than the second*/

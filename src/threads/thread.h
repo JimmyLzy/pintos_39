@@ -126,7 +126,7 @@ void thread_start (void);
 void thread_tick (void);
 
 void push_to_sleep_thread_list(struct list_elem *);
-void wake_threads(void);
+//void wake_threads(void);
 bool thread_compare(const struct list_elem *a, const struct list_elem *b, void *aux);
 bool priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux);
 
