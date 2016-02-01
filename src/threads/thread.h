@@ -97,6 +97,14 @@ struct thread
     struct semaphore *semaphore;        /*Semaphore used to control the sleep of a thread*/
     struct list_elem sleep_elem;        /*List element for sleep_thread_list*/
 
+    int nice;                       /*Nice.*/
+    int32_t recent_cpu;             /*Fixed-Point representation of Recent_cpu*/
+
+    struct thread *parent;              /*Parent of this thread*/
+
+    struct list children;               /*List of children of this thread*/
+
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -118,9 +126,8 @@ void thread_start (void);
 void thread_tick (void);
 
 void push_to_sleep_thread_list(struct list_elem *);
-void wake_threads(void);
+//void wake_threads(void);
 bool thread_compare(const struct list_elem *a, const struct list_elem *b, void *aux);
-
 bool priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux);
 
 void thread_print_stats (void);
@@ -144,10 +151,14 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+void thread_calc_priority (struct thread *thread);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
+void thread_calc_recent_cpu (struct thread *thread);
 int thread_get_load_avg (void);
+void thread_calc_load_avg (void); 
+void update_BSD_variables(void);
 
 #endif /* threads/thread.h */
