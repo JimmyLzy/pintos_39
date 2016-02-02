@@ -147,7 +147,7 @@ thread_tick (void)
 
   /*Recalculate 4.4BSD scheduler variables if the scheduler being used*/
   if(thread_mlfqs) {
-    update_BSD_variables;
+    update_BSD_variables();
   }
 
   /* Enforce preemption. */
@@ -530,6 +530,7 @@ thread_get_load_avg (void)
 {
   ASSERT (thread_mlfqs);
   int32_t result = FIXED_POINT_MUL_INT(load_avg, 100);
+  printf("%d\n", result);
   return FIXED_POINT_TO_INT_ROUND_TO_NEAREST(result);
 }
 
