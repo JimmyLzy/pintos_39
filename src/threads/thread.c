@@ -201,18 +201,21 @@ void
 wake_threads (void)
 {
     int64_t current_time = timer_ticks ();
-    
-    struct list_elem *e = list_begin (&sleep_thread_list);
-    struct thread *thread_current = list_entry(e, struct thread, sleep_elem);
 
-    while (thread_current->sleep_time <= current_time && 
+    if (!list_empty(&sleep_thread_list)) {
+
+      struct list_elem *e = list_begin (&sleep_thread_list);
+      struct thread *thread_current = list_entry(e, struct thread, sleep_elem);
+
+      while (thread_current->sleep_time <= current_time && 
                       e != list_end (&sleep_thread_list)) 
-    {
-      sema_up(thread_current->semaphore);
-      list_remove(e);
-      e = list_next (e);
-      thread_current = list_entry(e, struct thread, sleep_elem);
-    }
+      {
+        sema_up(thread_current->semaphore);
+        list_remove(e);
+        e = list_next (e);
+        thread_current = list_entry(e, struct thread, sleep_elem);
+      }
+  }
 }
 
 /*compare two thread according to their sleep_time,
@@ -514,6 +517,13 @@ thread_set_nice (int nice UNUSED)
   struct thread* current_thread = thread_current();
   current_thread->nice = nice;
   thread_calc_priority(current_thread);
+  int priority = current_thread->priority;
+  if (!list_empty(&ready_list)) {
+    struct thread *next_thread = list_entry(list_front(&ready_list), struct thread, elem);
+    if (priority < next_thread->priority) {
+      thread_yield();
+    }
+  }
 }
 
 /* Returns the current thread's nice value. */
