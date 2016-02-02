@@ -145,15 +145,16 @@ thread_tick (void)
   else
     kernel_ticks++;
 
-  /* Recalculate 4.4BSD Scheduler variables if the scheduler being used*/
+  /*Recalculate 4.4BSD scheduler variables if the scheduler being used*/
   if(thread_mlfqs) {
-    update_BSD_variables();
+    update_BSD_variables;
   }
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
 }
+
 
 void update_BSD_variables(void)
 {
@@ -182,6 +183,7 @@ void update_BSD_variables(void)
   }
 
 }
+
 
 /*push the sleep_elem of a sleeping thread into the
   sleep_thread_list in ascending order accoding to their sleep_time*/
@@ -223,6 +225,14 @@ thread_compare (const struct list_elem *a,
   struct thread *thread_a = list_entry (a, struct thread, sleep_elem);
   struct thread *thread_b = list_entry (b, struct thread, sleep_elem);
   return (thread_a->sleep_time <= thread_b->sleep_time);
+}
+
+bool
+priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+  struct thread *thread_a = list_entry (a, struct thread, elem);
+  struct thread *thread_b = list_entry (b, struct thread, elem);
+  return (thread_a->priority > thread_b->priority);
 }
 
 /* Prints thread statistics. */
@@ -303,6 +313,13 @@ thread_create (const char *name, int priority,
     t->nice = thread_current()->nice;
     t->recent_cpu = thread_current()->recent_cpu;
   }
+//  printf("creating thread: %s, priority: %d\n", name, priority);
+
+
+  if (t->priority>thread_current()->priority) {
+      thread_yield();
+  }
+
 
   return tid;
 }
@@ -316,6 +333,7 @@ thread_create (const char *name, int priority,
 void
 thread_block (void) 
 {
+
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
 
@@ -334,15 +352,19 @@ thread_block (void)
 void
 thread_unblock (struct thread *t) 
 {
+
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+
+  list_insert_ordered (&ready_list, &t->elem, priority_compare, 0);
+
   t->status = THREAD_READY;
   intr_set_level (old_level);
+
 }
 
 /* Returns the name of the running thread. */
@@ -410,8 +432,11 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+
+  if (cur != idle_thread) {
+//      list_push_back (&ready_list, &cur->elem);
+      list_insert_ordered (&ready_list, &cur->elem, priority_compare, 0);
+  }
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -439,6 +464,11 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  struct thread *next_thread;
+  if (!list_empty(&ready_list))
+    next_thread = list_entry(list_front(&ready_list), struct thread, elem);
+    if (new_priority < next_thread->priority)
+      thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -524,7 +554,6 @@ thread_calc_load_avg (void)
 
   coefficient = FIXED_POINT_MUL_INT(coefficient, num_of_ready_threads);
   load_avg = FIXED_POINT_ADD_FIXED_POINT(load_avg, coefficient);
-
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -555,7 +584,6 @@ thread_calc_recent_cpu (struct thread *thread)
 
   thread->recent_cpu = recent_cpu;
 }
-
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -644,10 +672,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-
-  if(thread_mlfqs) {
-    thread_calc_priority(t);
-  }
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
