@@ -320,7 +320,11 @@ thread_create (const char *name, int priority,
 
 
   if (t->priority>thread_current()->priority) {
-      thread_yield();
+      if(!intr_context()) {
+        thread_yield();
+      } else {
+        intr_yield_on_return();
+      }
   }
 
 
@@ -471,7 +475,11 @@ thread_set_priority (int new_priority)
   if (!list_empty(&ready_list))
     next_thread = list_entry(list_front(&ready_list), struct thread, elem);
     if (new_priority < next_thread->priority)
-      thread_yield();
+      if(!intr_context()) {
+        thread_yield();
+      } else {
+        intr_yield_on_return();
+      }
 }
 
 /* Returns the current thread's priority. */
@@ -521,7 +529,11 @@ thread_set_nice (int nice UNUSED)
   if (!list_empty(&ready_list)) {
     struct thread *next_thread = list_entry(list_front(&ready_list), struct thread, elem);
     if (priority < next_thread->priority) {
-      thread_yield();
+      if(!intr_context()) {
+        thread_yield();
+      } else {
+        intr_yield_on_return();
+      }
     }
   }
 }
@@ -683,6 +695,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  if(thread_mlfqs) {
+    thread_calc_priority(t);
+  }
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
