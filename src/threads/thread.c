@@ -319,17 +319,14 @@ thread_create (const char *name, int priority,
 //  printf("creating thread: %s, priority: %d\n", name, priority);
 
 
-  if (t->priority>thread_current()->priority) {
-      if(!intr_context()) {
-        thread_yield();
-      } else {
-        intr_yield_on_return();
-      }
+  if (t->priority > thread_current()->priority) {
+    thread_yield_safe();
   }
 
 
   return tid;
 }
+
 
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
@@ -466,6 +463,19 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+/*This method calls thread_yield in a safer way and it is mainly
+  used in priority scheduling.
+*/
+void
+thread_yield_safe(void)
+{
+  if(!intr_context()) {
+    thread_yield();
+  } else {
+    intr_yield_on_return();
+  }
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
@@ -475,11 +485,7 @@ thread_set_priority (int new_priority)
   if (!list_empty(&ready_list))
     next_thread = list_entry(list_front(&ready_list), struct thread, elem);
     if (new_priority < next_thread->priority)
-      if(!intr_context()) {
-        thread_yield();
-      } else {
-        intr_yield_on_return();
-      }
+      thread_yield_safe();
 }
 
 /* Returns the current thread's priority. */
@@ -529,11 +535,7 @@ thread_set_nice (int nice UNUSED)
   if (!list_empty(&ready_list)) {
     struct thread *next_thread = list_entry(list_front(&ready_list), struct thread, elem);
     if (priority < next_thread->priority) {
-      if(!intr_context()) {
-        thread_yield();
-      } else {
-        intr_yield_on_return();
-      }
+      thread_yield_safe();
     }
   }
 }
