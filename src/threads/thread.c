@@ -321,6 +321,7 @@ thread_create (const char *name, int priority,
 //  printf("creating thread: %s, priority: %d\n", name, priority);
 
 
+
   if (t->priority > thread_current()->priority) {
     thread_yield_safe();
   }
