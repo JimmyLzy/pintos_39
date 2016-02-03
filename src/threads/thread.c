@@ -303,24 +303,23 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
-  /*
-    When a thread is created, nice and recent_cpu are inherited from
-    the parent thread.
-  */
-  if(t != idle_thread) {
-    t->nice = thread_current()->nice;
-    t->recent_cpu = thread_current()->recent_cpu;
-  }
 
   intr_set_level (old_level);
 
   /* Add to run queue. */
   thread_unblock (t);
 
+  /*
+    When a thread is created, nice and recent_cpu are inherited from
+    the parent thread.
+  */
+  if(t != idle_thread) {
+    struct thread *current_thread = thread_current();
+    t->nice = current_thread->nice;
+    t->recent_cpu = current_thread->recent_cpu;
+  }
 
 //  printf("creating thread: %s, priority: %d\n", name, priority);
-
-
 
   if (t->priority > thread_current()->priority) {
     thread_yield_safe();
