@@ -303,11 +303,6 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
-  intr_set_level (old_level);
-
-  /* Add to run queue. */
-  thread_unblock (t);
-
   /*
     When a thread is created, nice and recent_cpu are inherited from
     the parent thread.
@@ -316,6 +311,13 @@ thread_create (const char *name, int priority,
     t->nice = thread_current()->nice;
     t->recent_cpu = thread_current()->recent_cpu;
   }
+
+  intr_set_level (old_level);
+
+  /* Add to run queue. */
+  thread_unblock (t);
+
+
 //  printf("creating thread: %s, priority: %d\n", name, priority);
 
 
@@ -554,7 +556,6 @@ thread_get_load_avg (void)
 {
   ASSERT (thread_mlfqs);
   int32_t result = FIXED_POINT_MUL_INT(load_avg, 100);
-  printf("%d\n", result);
   return FIXED_POINT_TO_INT_ROUND_TO_NEAREST(result);
 }
 
