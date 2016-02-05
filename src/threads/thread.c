@@ -313,6 +313,7 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+
   intr_set_level (old_level);
 
   //printf("===Creating thread %s with priority %d ===\n", name, priority);
@@ -325,23 +326,21 @@ thread_create (const char *name, int priority,
     the parent thread.
   */
   if(t != idle_thread) {
-    t->nice = thread_current()->nice;
-    t->recent_cpu = thread_current()->recent_cpu;
+    struct thread *current_thread = thread_current();
+    t->nice = current_thread->nice;
+    t->recent_cpu = current_thread->recent_cpu;
   }
+
 //  printf("creating thread: %s, priority: %d\n", name, priority);
 
-
-  if (t->priority>thread_current()->priority) {
-      if(!intr_context()) {
-        thread_yield();
-      } else {
-        intr_yield_on_return();
-      }
+  if (t->priority > thread_current()->priority) {
+    thread_yield_safe();
   }
 
 
   return tid;
 }
+
 
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
@@ -478,6 +477,19 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+/*This method calls thread_yield in a safer way and it is mainly
+  used in priority scheduling.
+*/
+void
+thread_yield_safe(void)
+{
+  if(!intr_context()) {
+    thread_yield();
+  } else {
+    intr_yield_on_return();
+  }
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
@@ -487,11 +499,7 @@ thread_set_priority (int new_priority)
   if (!list_empty(&ready_list))
     next_thread = list_entry(list_front(&ready_list), struct thread, elem);
     if (new_priority < next_thread->priority)
-      if(!intr_context()) {
-        thread_yield();
-      } else {
-        intr_yield_on_return();
-      }
+      thread_yield_safe();
 }
 
 /* Returns the current thread's priority. */
@@ -553,11 +561,7 @@ thread_set_nice (int nice UNUSED)
   if (!list_empty(&ready_list)) {
     struct thread *next_thread = list_entry(list_front(&ready_list), struct thread, elem);
     if (priority < next_thread->priority) {
-      if(!intr_context()) {
-        thread_yield();
-      } else {
-        intr_yield_on_return();
-      }
+      thread_yield_safe();
     }
   }
 }
@@ -576,7 +580,6 @@ thread_get_load_avg (void)
 {
   ASSERT (thread_mlfqs);
   int32_t result = FIXED_POINT_MUL_INT(load_avg, 100);
-  //printf("%d\n", result);
   return FIXED_POINT_TO_INT_ROUND_TO_NEAREST(result);
 }
 
