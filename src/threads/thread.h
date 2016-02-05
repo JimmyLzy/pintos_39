@@ -88,17 +88,21 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
+    int donated_priority;               /* Donated priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-    int sleep_time;                     /*Sleeping time of the thread*/
-    struct semaphore *semaphore;        /*Semaphore used to control the sleep of a thread*/
-    struct list_elem sleep_elem;        /*List element for sleep_thread_list*/
+    int sleep_time;                     /* Sleeping time of the thread*/
+    struct semaphore *semaphore;        /* Semaphore used to control the sleep of a thread*/
+    struct list_elem sleep_elem;        /* List element for sleep_thread_list*/
 
-    int nice;                       /*Nice.*/
-    int32_t recent_cpu;             /*Fixed-Point representation of Recent_cpu*/
+    struct lock *waiting_for_lock;       /* The lock that this thread is waiting for. */
+    struct list donation_locks;         /* List of locks whose holder is this thread */
+
+    int nice;                           /* Nice.*/
+    int32_t recent_cpu;                 /*Fixed-Point representation of Recent_cpu*/
 
     struct thread *parent;              /*Parent of this thread*/
 
@@ -127,8 +131,8 @@ void thread_tick (void);
 void push_to_sleep_thread_list(struct list_elem *);
 void wake_threads(void);
 bool thread_compare(const struct list_elem *a, const struct list_elem *b, void *aux);
-
 bool priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux);
+bool donated_priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux);
 
 void thread_print_stats (void);
 

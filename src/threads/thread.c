@@ -155,8 +155,8 @@ thread_tick (void)
     intr_yield_on_return ();
 }
 
-
-void update_BSD_variables(void)
+void
+update_BSD_variables(void)
 {
   struct thread *current_thread = thread_current();
 
@@ -235,8 +235,18 @@ priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux
 {
   struct thread *thread_a = list_entry (a, struct thread, elem);
   struct thread *thread_b = list_entry (b, struct thread, elem);
-  return (thread_a->priority > thread_b->priority);
+  return (get_priority(thread_a) > get_priority(thread_b));
 }
+
+//bool
+//donated_priority_compare(const struct list_elem *a, const struct list_elem *b, void *aux)
+//{
+//  struct thread *thread_a = list_entry (a, struct thread, donate_elem);
+//  struct thread *thread_b = list_entry (b, struct thread, donate_elem);
+//  return (get_priority(thread_a) > get_priority(thread_b));
+//}
+
+
 
 /* Prints thread statistics. */
 void
@@ -304,6 +314,8 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   intr_set_level (old_level);
+
+  //printf("===Creating thread %s with priority %d ===\n", name, priority);
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -486,7 +498,19 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  //printf("Getting priority %d from thread =====%s====\n", get_priority(thread_current()), thread_current()->name);
+  return get_priority(thread_current());
+}
+
+/* A more generalised function for getting priority of a thread. */
+int
+get_priority(struct thread *t)
+{
+  if (t->priority > t->donated_priority) {
+      return t->priority;
+  } else {
+      return t->donated_priority;
+  }
 }
 
 /*Recalculated thread priority used only by 4.4BSD scheduler*/
@@ -552,7 +576,7 @@ thread_get_load_avg (void)
 {
   ASSERT (thread_mlfqs);
   int32_t result = FIXED_POINT_MUL_INT(load_avg, 100);
-  printf("%d\n", result);
+  //printf("%d\n", result);
   return FIXED_POINT_TO_INT_ROUND_TO_NEAREST(result);
 }
 
@@ -695,6 +719,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->donated_priority = 0;
+  list_init(&t->donation_locks);
 
   if(thread_mlfqs) {
     thread_calc_priority(t);
