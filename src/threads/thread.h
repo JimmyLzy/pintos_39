@@ -81,23 +81,23 @@ typedef int tid_t;
  blocked state is on a semaphore wait list. */
 struct thread {
     /* Owned by thread.c. */
-    tid_t tid; /* Thread identifier. */
-    enum thread_status status; /* Thread state. */
-    char name[16]; /* Name (for debugging purposes). */
-    uint8_t *stack; /* Saved stack pointer. */
-    int priority; /* Priority. */
+    tid_t tid;                      /* Thread identifier. */
+    enum thread_status status;      /* Thread state. */
+    char name[16];                  /* Name (for debugging purposes). */
+    uint8_t *stack;                 /* Saved stack pointer. */
+    int priority;                   /* Priority. */
     int donated_priority; /* Donated priority. */
-    struct list_elem allelem; /* List element for all threads list. */
+    struct list_elem allelem;       /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
-    struct list_elem elem; /* List element. */
+    struct list_elem elem;          /* List element. */
 
-    int sleep_time; /* Sleeping time of the thread*/
-    struct semaphore *semaphore; /* Semaphore used to control the sleep of a thread*/
-    struct list_elem sleep_elem; /* List element for sleep_thread_list*/
+    int sleep_time;                 /* Sleeping time of the thread*/
+    struct semaphore *semaphore;    /* Semaphore used to control the sleep of a thread*/
+    struct list_elem sleep_elem;    /* List element for sleep_thread_list*/
 
-    struct lock *waiting_for_lock; /* The lock that this thread is waiting for. */
-    struct list donation_locks; /* List of locks whose holder is this thread */
+    struct lock *waiting_for_lock;  /* The lock that this thread is waiting for. */
+    struct list donation_locks;     /* List of locks whose holder is this thread */
 
     int nice; /* Nice.*/
     int32_t recent_cpu; /*Fixed-Point representation of Recent_cpu*/

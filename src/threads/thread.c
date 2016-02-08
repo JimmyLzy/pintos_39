@@ -213,6 +213,8 @@ bool thread_compare(const struct list_elem *a, const struct list_elem *b,
     return (thread_a->sleep_time <= thread_b->sleep_time);
 }
 
+/*Compare two threads according to their effective priority,
+ * return true if the priority of the first thread is higher than the second*/
 bool priority_compare(const struct list_elem *a, const struct list_elem *b,
         void *aux) {
     struct thread *thread_a = list_entry(a, struct thread, elem);
@@ -220,6 +222,8 @@ bool priority_compare(const struct list_elem *a, const struct list_elem *b,
     return (get_priority(thread_a) > get_priority(thread_b));
 }
 
+/*Compare two locks according to their priority, return true if the
+ * priority of the first lock is higher than the second*/
 bool lock_priority_compare(const struct list_elem *a, const struct list_elem *b,
         void *aux) {
     struct lock *lock_a = list_entry(a, struct lock, lock_elem);
@@ -290,22 +294,16 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
 
     intr_set_level(old_level);
 
-    //printf("===Creating thread %s with priority %d ===\n", name, priority);
-
     /* Add to run queue. */
     thread_unblock(t);
 
-    /*
-     When a thread is created, nice and recent_cpu are inherited from
-     the parent thread.
-     */
+    /* When a thread is created, nice and recent_cpu are inherited from
+     the parent thread. */
     if (t != idle_thread) {
         struct thread *current_thread = thread_current();
         t->nice = current_thread->nice;
         t->recent_cpu = current_thread->recent_cpu;
     }
-
-//  printf("creating thread: %s, priority: %d\n", name, priority);
 
     if (t->priority > thread_current()->priority) {
         thread_yield_safe();
@@ -458,7 +456,6 @@ void thread_set_priority(int new_priority) {
 
 /* Returns the current thread's priority. */
 int thread_get_priority(void) {
-    //printf("Getting priority %d from thread =====%s====\n", get_priority(thread_current()), thread_current()->name);
     return get_priority(thread_current());
 }
 
