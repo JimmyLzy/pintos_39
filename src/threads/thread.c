@@ -439,7 +439,7 @@ void thread_set_priority(int new_priority) {
     struct thread *next_thread;
     if (!list_empty(&ready_list))
         next_thread = list_entry(list_front(&ready_list), struct thread, elem);
-    if (new_priority < next_thread->priority)
+    if (new_priority < get_priority(next_thread))
         thread_yield_safe();
 }
 
