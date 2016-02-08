@@ -263,6 +263,14 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
     init_thread(t, name, priority);
     tid = t->tid = allocate_tid();
 
+    /* When a thread is created, nice and recent_cpu are inherited from
+     the parent thread. */
+    if (t != idle_thread) {
+        struct thread *current_thread = thread_current();
+        t->nice = current_thread->nice;
+        t->recent_cpu = current_thread->recent_cpu;
+    }
+
     /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
      member cannot be observed. */
@@ -287,14 +295,6 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
 
     /* Add to run queue. */
     thread_unblock(t);
-
-    /* When a thread is created, nice and recent_cpu are inherited from
-     the parent thread. */
-    if (t != idle_thread) {
-        struct thread *current_thread = thread_current();
-        t->nice = current_thread->nice;
-        t->recent_cpu = current_thread->recent_cpu;
-    }
 
     if (t->priority > thread_current()->priority) {
         thread_yield_safe();
@@ -430,8 +430,6 @@ void thread_foreach(thread_action_func *func, void *aux) {
 void thread_yield_safe(void) {
     if (!intr_context()) {
         thread_yield();
-    } else {
-        intr_yield_on_return();
     }
 }
 
@@ -460,11 +458,11 @@ int get_priority(struct thread *t) {
 }
 
 /*Recalculated thread priority used only by 4.4BSD scheduler*/
-void thread_calc_priority(struct thread *thread) {
+void thread_calc_priority(struct thread *thread, void *aux) {
     ASSERT(thread_mlfqs);
 
     int32_t fp_pri_max = CONVERT_INT_TO_FIXED_POINT(PRI_MAX);
-    int32_t fp_recent_cpu = CONVERT_INT_TO_FIXED_POINT(thread->recent_cpu);
+    int32_t fp_recent_cpu = thread->recent_cpu;
     int32_t fp_nice = CONVERT_INT_TO_FIXED_POINT(thread->nice);
     fp_recent_cpu = FIXED_POINT_DIV_INT(fp_recent_cpu, 4);
     fp_nice = FIXED_POINT_MUL_INT(fp_nice, 2);
@@ -490,7 +488,7 @@ void thread_set_nice(int nice UNUSED) {
     ASSERT(thread_mlfqs);
     struct thread* current_thread = thread_current();
     current_thread->nice = nice;
-    thread_calc_priority(current_thread);
+    thread_calc_priority(current_thread, NULL);
     int priority = current_thread->priority;
     if (!list_empty(&ready_list)) {
         struct thread *next_thread = list_entry(list_front(&ready_list),
@@ -543,7 +541,7 @@ int thread_get_recent_cpu(void) {
 }
 
 /*Recalculate recent_cpu.*/
-void thread_calc_recent_cpu(struct thread *thread) {
+void thread_calc_recent_cpu(struct thread *thread, void *aux) {
 
     int32_t recent_cpu = thread->recent_cpu;
 
@@ -641,7 +639,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     list_init(&t->donation_locks);
 
     if (thread_mlfqs) {
-        thread_calc_priority(t);
+        thread_calc_priority(t, NULL);
     }
 
     old_level = intr_disable();

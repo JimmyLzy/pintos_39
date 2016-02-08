@@ -99,12 +99,8 @@ struct thread {
     struct lock *waiting_for_lock;  /* The lock that this thread is waiting for. */
     struct list donation_locks;     /* List of locks whose holder is this thread */
 
-    int nice; /* Nice.*/
-    int32_t recent_cpu; /*Fixed-Point representation of Recent_cpu*/
-
-    struct thread *parent; /*Parent of this thread*/
-
-    struct list children; /*List of children of this thread*/
+    int nice;                       /* Nice.*/
+    int32_t recent_cpu;             /*Fixed-Point representation of Recent_cpu*/
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -154,12 +150,12 @@ void thread_foreach(thread_action_func *, void *);
 void thread_yield_safe(void);
 int thread_get_priority(void);
 void thread_set_priority(int);
-void thread_calc_priority(struct thread *thread);
+void thread_calc_priority(struct thread *, void *);
 
 int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
-void thread_calc_recent_cpu(struct thread *thread);
+void thread_calc_recent_cpu(struct thread *, void *);
 int thread_get_load_avg(void);
 void thread_calc_load_avg(void);
 void update_BSD_variables(void);
