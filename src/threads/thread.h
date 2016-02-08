@@ -86,7 +86,7 @@ struct thread {
     char name[16];                  /* Name (for debugging purposes). */
     uint8_t *stack;                 /* Saved stack pointer. */
     int priority;                   /* Priority. */
-    int donated_priority; /* Donated priority. */
+    int donated_priority;           /* Donated priority. */
     struct list_elem allelem;       /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -130,8 +130,6 @@ void wake_threads(void);
 bool thread_compare(const struct list_elem *a, const struct list_elem *b,
         void *aux);
 bool priority_compare(const struct list_elem *a, const struct list_elem *b,
-        void *aux);
-bool lock_priority_compare(const struct list_elem *a, const struct list_elem *b,
         void *aux);
 
 void thread_print_stats(void);

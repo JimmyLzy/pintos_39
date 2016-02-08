@@ -216,8 +216,7 @@ void lock_acquire(struct lock *lock) {
     lock->holder = thread_current();
 
     cur->waiting_for_lock = NULL;
-    list_insert_ordered(&(lock->holder->donation_locks), &lock->lock_elem,
-            lock_priority_compare, 0);
+    list_push_back(&(lock->holder->donation_locks), &lock->lock_elem);
 
 }
 
@@ -255,7 +254,6 @@ void lock_release(struct lock *lock) {
 
     list_remove(&lock->lock_elem);
     if (!list_empty(&cur->donation_locks)) {
-        list_sort(&cur->donation_locks, lock_priority_compare, 0);
         next_lock = list_entry(list_front(&cur->donation_locks), struct lock,
                 lock_elem);
         if (next_lock->priority != 0) {

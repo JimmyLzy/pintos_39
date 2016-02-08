@@ -222,15 +222,6 @@ bool priority_compare(const struct list_elem *a, const struct list_elem *b,
     return (get_priority(thread_a) > get_priority(thread_b));
 }
 
-/*Compare two locks according to their priority, return true if the
- * priority of the first lock is higher than the second*/
-bool lock_priority_compare(const struct list_elem *a, const struct list_elem *b,
-        void *aux) {
-    struct lock *lock_a = list_entry(a, struct lock, lock_elem);
-    struct lock *lock_b = list_entry(b, struct lock, lock_elem);
-    return (lock_a->priority > lock_b->priority);
-}
-
 /* Prints thread statistics. */
 void thread_print_stats(void) {
     printf("Thread: %lld idle ticks, %lld kernel ticks, %lld user ticks\n",
