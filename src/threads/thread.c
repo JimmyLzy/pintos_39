@@ -402,7 +402,6 @@ void thread_yield(void) {
     old_level = intr_disable();
 
     if (cur != idle_thread) {
-//      list_push_back (&ready_list, &cur->elem);
         list_insert_ordered(&ready_list, &cur->elem, priority_compare, 0);
     }
     cur->status = THREAD_READY;
@@ -435,10 +434,18 @@ void thread_yield_safe(void) {
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
-    thread_current()->priority = new_priority;
+
     struct thread *next_thread;
-    if (!list_empty(&ready_list))
+    thread_current()->priority = new_priority;
+
+    enum intr_level old_level = intr_disable();
+
+    if (!list_empty(&ready_list)) {
         next_thread = list_entry(list_front(&ready_list), struct thread, elem);
+    }
+
+    intr_set_level(old_level);
+
     if (new_priority < get_priority(next_thread))
         thread_yield_safe();
 }
