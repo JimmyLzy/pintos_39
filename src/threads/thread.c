@@ -442,6 +442,8 @@ void thread_set_priority(int new_priority) {
 
     if (!list_empty(&ready_list)) {
         next_thread = list_entry(list_front(&ready_list), struct thread, elem);
+    } else {
+        return;
     }
 
     intr_set_level(old_level);
