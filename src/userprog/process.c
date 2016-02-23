@@ -128,21 +128,21 @@ setup_esp (char *name, char **save, void *esp, int arglen)
     argc++;
   }
   esp = (void *)((char *)esp - 1);
-  memcpy (esp, 0, 1);
+  *((int *)esp) = 0;
   esp = (void *)((char *)esp - 4);
-  memcpy (esp, NULL, 4);
+  *((int *)esp) = NULL;
   int i;
   for (i = argc - 1; i >= 0; i--) {
     esp = (void *)((char *)esp - 4);
-    memcpy (esp, argv[i], 4);
+    esp = argv[i];
   }
   char *arg_entry = esp;
   esp = (void *)((char *)esp - 4);
-  memcpy (esp, arg_entry, 4);
+  esp = arg_entry;
   esp = (void *)((char *)esp - 4);
-  memcpy (esp, argc, 4);
+  *((int *)esp) = argc;
   esp = (void *)((char *)esp - 4);
-  memcpy (esp, 0, 4);
+  *((int *)esp) = 0;
 }
 
 /* Waits for thread TID to die and returns its exit status.  If
