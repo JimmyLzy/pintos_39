@@ -38,6 +38,29 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  /*  */
+  int arguments_length = 8 * 128;
+//  ASSERT(strlen(fn_copy) <= arguments_length);
+//  char *token;
+//  char **arguments;
+//  arguments = palloc_get_page (0);
+//  char *save = "";
+//  int num = 1;
+//  token = strtok_r(fn_copy, " ", &save);
+//  *file_name = *token;
+//  arguments[0] = token;
+//  while (token != NULL)
+//    token = strtok_r(NULL, " ", &save);
+//    arguments[num] = token;
+//    num++;
+  char *fn_copy_ = palloc_get_page (0);
+  if (fn_copy_ == NULL)
+    return TID_ERROR;
+  strlcpy (fn_copy_, file_name, PGSIZE);
+  char *save = "";
+  file_name = strtok_r (fn_copy_, " ", &save);
+  palloc_free_page (fn_copy_);
+
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
@@ -59,7 +82,16 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  /* */
+  int arglen = strlen (file_name) + 1;
+  char *save = "";
+  char *name = strtok_r (file_name, " ", &save);
+  /* */
+  success = load (name, &if_.eip, &if_.esp);
+
+  /* */
+  setup_esp (name, &save, if_.esp, arglen);
+  /* */
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -74,6 +106,43 @@ start_process (void *file_name_)
      and jump to it. */
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
+}
+
+/* */
+void
+setup_esp (char *name, char **save, void *esp, int arglen)
+{
+  int argc = 0;
+  char **argv = (char **) malloc (arglen * sizeof(char));
+  if (argv == NULL) {
+    PANIC ("Allocation of memory fails.");
+  }
+
+  char *token = name;
+  while (token != NULL) {
+    size_t len = strlen (token) + 1;
+    esp = (void *)((char *)esp - len);
+    memcpy (esp, token, len);
+    argv[argc] = esp;
+    token = strtok_r (NULL, " ", save);
+    argc++;
+  }
+  esp = (void *)((char *)esp - 1);
+  memcpy (esp, 0, 1);
+  esp = (void *)((char *)esp - 4);
+  memcpy (esp, NULL, 4);
+  int i;
+  for (i = argc - 1; i >= 0; i--) {
+    esp = (void *)((char *)esp - 4);
+    memcpy (esp, argv[i], 4);
+  }
+  char *arg_entry = esp;
+  esp = (void *)((char *)esp - 4);
+  memcpy (esp, arg_entry, 4);
+  esp = (void *)((char *)esp - 4);
+  memcpy (esp, argc, 4);
+  esp = (void *)((char *)esp - 4);
+  memcpy (esp, 0, 4);
 }
 
 /* Waits for thread TID to die and returns its exit status.  If
