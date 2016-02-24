@@ -40,31 +40,18 @@ process_execute (const char *file_name)
 
   /*  */
   int arguments_length = 8 * 128;
-//  ASSERT(strlen(fn_copy) <= arguments_length);
-//  char *token;
-//  char **arguments;
-//  arguments = palloc_get_page (0);
-//  char *save = "";
-//  int num = 1;
-//  token = strtok_r(fn_copy, " ", &save);
-//  *file_name = *token;
-//  arguments[0] = token;
-//  while (token != NULL)
-//    token = strtok_r(NULL, " ", &save);
-//    arguments[num] = token;
-//    num++;
   char *fn_copy_ = palloc_get_page (0);
   if (fn_copy_ == NULL)
     return TID_ERROR;
   strlcpy (fn_copy_, file_name, PGSIZE);
-  char *save = "";
-  file_name = strtok_r (fn_copy_, " ", &save);
-  palloc_free_page (fn_copy_);
+  char *save;
+  char *file_name_ = strtok_r (fn_copy_, " ", &save);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (file_name_, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (fn_copy);
+  palloc_free_page (fn_copy_);
   return tid;
 }
 
@@ -82,21 +69,26 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  /* */
+
+  /* Tokenize the executable file name in order to load
+   the executable. */
   int arglen = strlen (file_name) + 1;
-  char *save = "";
+  char *save;
   char *name = strtok_r (file_name, " ", &save);
-  /* */
+
   success = load (name, &if_.eip, &if_.esp);
 
-  /* */
-  setup_esp (name, &save, if_.esp, arglen);
-  /* */
-
-  /* If load failed, quit. */
-  palloc_free_page (file_name);
-  if (!success) 
+  /* If load failed, quit. Otherwise, push arguments
+  onto the stack and execute.*/
+  if (!success) {
+    palloc_free_page (file_name);
     thread_exit ();
+  } else {
+    if_.esp = PHYS_BASE;
+    setup_esp (name, &save, if_.esp, arglen);
+  }
+
+  palloc_free_page (file_name);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -110,39 +102,90 @@ start_process (void *file_name_)
 
 /* */
 void
-setup_esp (char *name, char **save, void *esp, int arglen)
+setup_esp (char *file_name, char **save, void *esp, int arglen)
 {
-  int argc = 0;
-  char **argv = (char **) malloc (arglen * sizeof(char));
+  enum intr_level old_level;
+  old_level = intr_disable();
+
+  /* Allocate space for the arguments array on the heap. */
+  char **argv = (char **) malloc(arglen * sizeof(char *));
   if (argv == NULL) {
     PANIC ("Allocation of memory fails.");
   }
 
-  char *token = name;
+  /* Tokenize the arguments and store them into the array while
+   also count the number of the arguments(argc) and the arglen
+     used for calculating word-align. */
+  int argc = 0;
+  arglen = 0;
+  char *token = file_name;
   while (token != NULL) {
+    argv[argc] = token;
     size_t len = strlen (token) + 1;
-    esp = (void *)((char *)esp - len);
-    memcpy (esp, token, len);
-    argv[argc] = esp;
-    token = strtok_r (NULL, " ", save);
+    arglen = arglen + len;
     argc++;
+    token = strtok_r (NULL, " ", save);
   }
-  esp = (void *)((char *)esp - 1);
-  *((int *)esp) = 0;
-  esp = (void *)((char *)esp - 4);
-  *((int *)esp) = NULL;
+
+  /* Store the address of the arguments in the array created.*/
+  int **argv_address = (int **) malloc (argc * sizeof(int *));
+  if (argv_address == NULL) {
+    PANIC ("Allocation of memory fails.");
+  }
   int i;
   for (i = argc - 1; i >= 0; i--) {
-    esp = (void *)((char *)esp - 4);
-    esp = argv[i];
+    size_t arg_len = strlen(argv[i]) + 1;
+    esp = esp - arg_len;
+//    printf("argument address: %04x\n",esp);
+    memcpy (esp, argv[i], arg_len);
+    argv_address[i] = esp;
+//    printf("argument contents: %s\n", argv_address[i]);
   }
-  char *arg_entry = esp;
-  esp = (void *)((char *)esp - 4);
-  esp = arg_entry;
-  esp = (void *)((char *)esp - 4);
-  *((int *)esp) = argc;
-  esp = (void *)((char *)esp - 4);
+//  printf("\n");
+
+  /* Allocate space for word-align. */
+  int word_align = arglen % 4;
+  if (word_align != 0) {
+    word_align = 4 - word_align;
+  }
+  esp = esp - word_align;
+//  printf("word align address: %04x\n",esp);
+//  printf("\n");
+
+  /* Representing the NULL value at the end of arguments. */
+  esp = esp - 4;
   *((int *)esp) = 0;
+//  printf("array end NULL address: %04x\n",esp);
+//  printf("\n");
+
+  /* Allocate space and push arguments onto the Stack. */
+  for (i = argc - 1; i >= 0; i--) {
+    esp = esp - 4;
+    *(int **)esp = argv_address[i];
+//     printf("argument address: %04x\n",esp);
+//     printf("argument contents: %04x\n",*(int **)esp);
+  }
+//  printf("\n");
+
+  /* Push arguments entry, arguments number and return onto Stack. */
+  esp = esp - 4;
+  *(int **) esp = esp + 4;
+//  printf("argument entry address: %04x\n",esp);
+//  printf("argument entry content: %04x\n",*(int **)esp);
+//  printf("\n");
+  esp = esp - 4;
+  *((int *)esp) = argc;
+//  printf("argc: %04x\n",esp);
+//  printf("its content: %d\n",*(int *)esp);
+//  printf("\n");
+  esp = esp - 4;
+  *((int *)esp) = 0;
+//  printf("return address :%04x\n",esp);
+
+  free (argv);
+  free (argv_address);
+  hex_dump(esp, esp, 300, true);
+  intr_set_level(old_level);
 }
 
 /* Waits for thread TID to die and returns its exit status.  If
@@ -509,7 +552,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }
