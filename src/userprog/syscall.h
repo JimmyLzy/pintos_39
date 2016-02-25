@@ -15,4 +15,10 @@ int wait(pid_t pid);
 
 int write(int fd, const void *buffer, unsigned size);
 
+bool create (const char *file_path, unsigned initial_size);
+
+bool remove (const char *file_path);
+
+int open (const char *file_path);
+
 #endif /* userprog/syscall.h */

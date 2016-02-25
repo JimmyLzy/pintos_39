@@ -265,11 +265,19 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
 
     /* When a thread is created, nice and recent_cpu are inherited from
      the parent thread. */
+
+    struct thread *current_thread = thread_current();
     if (t != idle_thread) {
-        struct thread *current_thread = thread_current();
         t->nice = current_thread->nice;
         t->recent_cpu = current_thread->recent_cpu;
     }
+
+    #ifdef USERPROG
+       
+       t->parent = current_thread;
+       list_push_back(&current_thread->children, &t->child);
+
+    #endif
 
     /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
@@ -302,6 +310,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
 
     return tid;
 }
+
 
 /* Puts the current thread to sleep.  It will not be scheduled
  again until awoken by thread_unblock().
@@ -646,6 +655,13 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->magic = THREAD_MAGIC;
     t->donated_priority = 0;
     list_init(&t->donation_locks);
+
+
+    #ifdef USERPROG
+
+      list_init(&t->children);
+
+    #endif
 
     if (thread_mlfqs) {
         thread_calc_priority(t, NULL);

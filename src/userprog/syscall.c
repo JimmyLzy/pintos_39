@@ -6,6 +6,8 @@
 #include "threads/vaddr.h"
 #include <stdbool.h>
 
+#include "filesys/filesys.h"
+
 //number of system call types
 #define SYSCALL_NUM 13
 //maximum number of arguments of system calls
@@ -164,6 +166,32 @@ int write(int fd, const void *buffer, unsigned size) {
 
 	return 0;
 
+}
+
+bool create (const char *file_path, unsigned initial_size) {
+
+	return filesys_create(file_path, initial_size);
+
+}
+
+bool remove (const char *file_path) {
+
+	return filesys_remove(file_path); 
+
+}
+
+int open (const char *file_path) {
+
+	struct file *file = filesys_open(file_path);
+
+    int fd;
+	if(file == NULL) {
+	  fd = -1;
+	} else {
+	  fd = 0;
+	}
+
+	return fd;
 }
 
 ///* Tasks 2 and later. */
