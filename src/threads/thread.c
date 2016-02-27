@@ -293,6 +293,11 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
 
     intr_set_level(old_level);
 
+    //user program modification
+    list_push_back(&thread_current()->child_list, &t->child_list_elem);
+    t->parent = thread_current();
+    //printf("thread %s creates thread %s\n", thread_current()->name, t->name);
+
     /* Add to run queue. */
     thread_unblock(t);
 
@@ -646,6 +651,10 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->magic = THREAD_MAGIC;
     t->donated_priority = 0;
     list_init(&t->donation_locks);
+    list_init(&t->child_list);
+
+    //printf("============thread %s is initialising\n", t->name);
+
 
     if (thread_mlfqs) {
         thread_calc_priority(t, NULL);

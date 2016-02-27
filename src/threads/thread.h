@@ -105,7 +105,17 @@ struct thread {
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir; /* Page directory. */
+
+
 #endif
+
+    int return_status;
+    struct thread *parent;
+
+    struct semaphore *exit_sema;
+
+    struct list child_list;
+    struct list_elem child_list_elem;
 
     /* Owned by thread.c. */
     unsigned magic; /* Detects stack overflow. */
