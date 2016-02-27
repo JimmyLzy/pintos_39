@@ -70,14 +70,17 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  /* */
+
+  /* Tokenize the executable file name in order to load
+   the executable. */
   int arglen = strlen (file_name) + 1;
   char *save;
   char *name = strtok_r (file_name, " ", &save);
-  /* */
+
   success = load (name, &if_.eip, &if_.esp);
 
-  /* If load failed, quit. */
+  /* If load failed, quit. Otherwise, push arguments
+  onto the stack and execute.*/
   if (!success) {
     palloc_free_page (file_name);
     thread_exit ();
@@ -100,6 +103,7 @@ start_process (void *file_name_)
 }
 
 /* */
+
 void *
 setup_esp (char *file_name, char **save, void *esp, int arglen)
 {
@@ -200,6 +204,7 @@ setup_esp (char *file_name, char **save, void *esp, int arglen)
   intr_set_level(old_level);
 
   return esp;
+
 }
 
 /* Waits for thread TID to die and returns its exit status.  If

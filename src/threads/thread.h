@@ -79,6 +79,9 @@ typedef int tid_t;
  only because they are mutually exclusive: only a thread in the
  ready state is on the run queue, whereas only a thread in the
  blocked state is on a semaphore wait list. */
+
+
+
 struct thread {
     /* Owned by thread.c. */
     tid_t tid;                      /* Thread identifier. */
@@ -105,8 +108,6 @@ struct thread {
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir; /* Page directory. */
-
-
 #endif
 
     int return_status;
@@ -120,6 +121,12 @@ struct thread {
     /* Owned by thread.c. */
     unsigned magic; /* Detects stack overflow. */
 };
+
+struct file_handler {
+    int fd; /* File descriptor. */
+    struct file *file; /* Pointer to the file. */
+};
+
 
 /* If false (default), use round-robin scheduler.
  If true, use multi-level feedback queue scheduler.
@@ -169,5 +176,7 @@ void thread_calc_recent_cpu(struct thread *, void *);
 int thread_get_load_avg(void);
 void thread_calc_load_avg(void);
 void update_BSD_variables(void);
+
+
 
 #endif /* threads/thread.h */
