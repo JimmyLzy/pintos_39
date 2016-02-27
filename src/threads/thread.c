@@ -272,12 +272,6 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
         t->recent_cpu = current_thread->recent_cpu;
     }
 
-    #ifdef USERPROG
-       
-       t->parent = current_thread;
-       list_push_back(&current_thread->children, &t->child);
-
-    #endif
 
     /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
@@ -663,14 +657,6 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     list_init(&t->child_list);
 
     //printf("============thread %s is initialising\n", t->name);
-
-
-
-    #ifdef USERPROG
-
-      list_init(&t->children);
-
-    #endif
 
     if (thread_mlfqs) {
         thread_calc_priority(t, NULL);
