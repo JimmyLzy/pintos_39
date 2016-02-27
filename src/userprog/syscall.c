@@ -69,16 +69,18 @@ static void syscall_handler(struct intr_frame *f) {
         exit(args[0]);
         break;
     case SYS_EXEC:
+        f->eax = exec((const char*)args[0]);
         break;
     case SYS_WAIT:
         wait(args[0]);
         break;
     case SYS_CREATE:
-        create((const char *)args[0], args[1]);
+        f->eax = create((const char *)args[0], args[1]);
         break;
     case SYS_REMOVE:
         break;
     case SYS_OPEN:
+        f->eax = open((const char *)args[0]);
         break;
     case SYS_FILESIZE:
         break;
@@ -122,12 +124,11 @@ void exit(int status) {
 }
 
 pid_t exec(const char *cmd_line) {
-    return -1;
+    return process_execute(cmd_line);
 }
 
 int wait(pid_t pid) {
-    printf("waiting...\n");
-    return -1;
+    return process_wait(pid);
 }
 
 bool create (const char *file_path, unsigned initial_size) {
@@ -138,27 +139,48 @@ bool create (const char *file_path, unsigned initial_size) {
 
 int write(int fd, const void *buffer, unsigned size) {
 
-//    putbuf (buffer, size);
-//    return (int) size;
+    //printf("=====fd is %d, ====writing: %s\n", fd, (char *)buffer);
 
-	if (fd == 1) {
-		int written_size = 0;
-		if (size < MAX_PUTBUF_SIZE) {
-			putbuf((char *) buffer, size);
-			return size;
-		} else {
-			while (size > MAX_PUTBUF_SIZE) {
-				putbuf((char *) (buffer + written_size), MAX_PUTBUF_SIZE);
-				size -= MAX_PUTBUF_SIZE;
-				written_size += MAX_PUTBUF_SIZE;
-			}
-			putbuf((char *) (buffer + written_size), size);
-			written_size += size;
-		}
-		return written_size;
-	}
+    if (fd == 1) {
+        int written_size = 0;
+        if (size < MAX_PUTBUF_SIZE) {
+            putbuf((char *) buffer, size);
+            return size;
+        } else {
+            while (size > MAX_PUTBUF_SIZE) {
+                putbuf((char *) (buffer + written_size), MAX_PUTBUF_SIZE);
+                size -= MAX_PUTBUF_SIZE;
+                written_size += MAX_PUTBUF_SIZE;
+            }
+            putbuf((char *) (buffer + written_size), size);
+            written_size += size;
+        }
+        return written_size;
+    } else {
+       // find_file(fd);
 
-	return 0;
+        //printf("found file\n");
+
+//
+//        int written_size = 0;
+//        if (size < MAX_PUTBUF_SIZE) {
+//            file_write(find_file(fd), buffer, size);
+//            return size;
+//        } else {
+//
+//
+//            while (size > MAX_PUTBUF_SIZE) {
+//                file_write(find_file(fd), buffer + written_size,
+//                        MAX_PUTBUF_SIZE);
+//                size -= MAX_PUTBUF_SIZE;
+//                written_size += MAX_PUTBUF_SIZE;
+//            }
+//            file_write(find_file(fd), buffer + written_size, size);
+//            written_size += size;
+//        }
+//        return written_size;
+        return size;
+    }
 
 }
 
@@ -179,9 +201,10 @@ int open (const char *file_path) {
         fh->fd = t->fd;
         fh->file = file;
         list_push_back(&t->file_handler, &fh->elem);
+
         return t->fd;
     }
-
+    printf("opening fd: %d\n", thread_current()->fd);
     return -1;
 }
 
@@ -197,17 +220,19 @@ int filesize(int fd) {
 
 struct file *find_file(int fd) {
 
-    struct thread *current_thread = thread_current();
-    struct list_elem *list_elem = list_begin(&current_thread->file_handler);
-    while (list_elem != NULL) {
-        struct file_handler *fh = list_entry(list_elem, struct file_handler, elem);
+    struct list_elem *e;
+    struct thread *cur = thread_current();
+    struct file_handler *fh;
+    for (e = list_begin(&cur->file_handler); e != list_end(&cur->file_handler);
+            e = list_next(e)) {
+        fh = list_entry(e, struct file_handler, elem);
         if (fh->fd == fd) {
             return fh->file;
         }
-        list_elem = list_next(list_elem);
     }
 
     return NULL;
+
 }
 
 ///* Tasks 2 and later. */
