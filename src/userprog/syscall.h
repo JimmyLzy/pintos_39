@@ -21,4 +21,7 @@ bool remove (const char *file_path);
 
 int open (const char *file_path);
 
+struct file *find_file(int fd);
+
+int filesize(int fd);
 #endif /* userprog/syscall.h */

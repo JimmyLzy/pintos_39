@@ -74,6 +74,7 @@ static void syscall_handler(struct intr_frame *f) {
         wait(args[0]);
         break;
     case SYS_CREATE:
+        create((const char *)args[0], args[1]);
         break;
     case SYS_REMOVE:
         break;
@@ -129,6 +130,12 @@ int wait(pid_t pid) {
     return -1;
 }
 
+bool create (const char *file_path, unsigned initial_size) {
+
+    return filesys_create(file_path, initial_size);
+
+}
+
 int write(int fd, const void *buffer, unsigned size) {
 
 //    putbuf (buffer, size);
@@ -155,12 +162,6 @@ int write(int fd, const void *buffer, unsigned size) {
 
 }
 
-bool create (const char *file_path, unsigned initial_size) {
-
-	return filesys_create(file_path, initial_size);
-
-}
-
 bool remove (const char *file_path) {
 
 	return filesys_remove(file_path); 
@@ -169,16 +170,44 @@ bool remove (const char *file_path) {
 
 int open (const char *file_path) {
 
-	struct file *file = filesys_open(file_path);
+    struct file *file = filesys_open(file_path);
 
-    int fd;
-	if(file == NULL) {
-	  fd = -1;
-	} else {
-	  fd = 0;
-	}
+    if(file != NULL) {
+        struct thread *t = thread_current();
+        struct file_handler *fh;
+        t->fd++;
+        fh->fd = t->fd;
+        fh->file = file;
+        list_push_back(&t->file_handler, &fh->elem);
+        return t->fd;
+    }
 
-	return fd;
+    return -1;
+}
+
+int filesize(int fd) {
+
+    struct file *file = find_file(fd);
+    if (file != NULL) {
+        return file_length(file);
+    }
+    exit(-1);
+
+}
+
+struct file *find_file(int fd) {
+
+    struct thread *current_thread = thread_current();
+    struct list_elem *list_elem = list_begin(&current_thread->file_handler);
+    while (list_elem != NULL) {
+        struct file_handler *fh = list_entry(list_elem, struct file_handler, elem);
+        if (fh->fd == fd) {
+            return fh->file;
+        }
+        list_elem = list_next(list_elem);
+    }
+
+    return NULL;
 }
 
 ///* Tasks 2 and later. */

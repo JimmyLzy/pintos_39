@@ -118,6 +118,9 @@ struct thread {
     struct list child_list;
     struct list_elem child_list_elem;
 
+    struct list file_handler;
+    int fd;
+
     /* Owned by thread.c. */
     unsigned magic; /* Detects stack overflow. */
 };
@@ -125,8 +128,8 @@ struct thread {
 struct file_handler {
     int fd; /* File descriptor. */
     struct file *file; /* Pointer to the file. */
+    struct list_elem elem;
 };
-
 
 /* If false (default), use round-robin scheduler.
  If true, use multi-level feedback queue scheduler.

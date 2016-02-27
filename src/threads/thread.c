@@ -657,6 +657,12 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     list_init(&t->child_list);
 
     //printf("============thread %s is initialising\n", t->name);
+    #ifdef USERPROG
+
+        list_init(&t->file_handler);
+        t->fd = 1;
+
+    #endif
 
     if (thread_mlfqs) {
         thread_calc_priority(t, NULL);
