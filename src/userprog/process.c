@@ -240,9 +240,10 @@ process_wait (tid_t child_tid UNUSED)
         }
     }
 
-    //int status = child_thread->return_status;
-    //child_thread -> parent = NULL;
-    //list_remove(&child_thread->child_list_elem);
+//    int status = child_thread->status;
+//    t->status = status;
+//    child_thread -> parent = NULL;
+//    list_remove(&child_thread->child_list_elem);
 
     return -1;
 }

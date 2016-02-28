@@ -118,7 +118,7 @@ struct thread {
     struct list child_list;
     struct list_elem child_list_elem;
 
-    struct list file_handler;
+    struct list file_handler_list;
     int fd;
 
     /* Owned by thread.c. */

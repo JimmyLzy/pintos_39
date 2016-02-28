@@ -15,6 +15,10 @@
 //maximum buffer size per putbuf() operation
 #define MAX_PUTBUF_SIZE 512
 
+//file descriptor constant
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+
 static int syscall_args_num[SYSCALL_NUM];
 
 static void syscall_handler(struct intr_frame *);
@@ -72,7 +76,7 @@ static void syscall_handler(struct intr_frame *f) {
         f->eax = exec((const char*)args[0]);
         break;
     case SYS_WAIT:
-        wait(args[0]);
+        f->eax = wait(args[0]);
         break;
     case SYS_CREATE:
         f->eax = create((const char *)args[0], args[1]);
@@ -83,8 +87,10 @@ static void syscall_handler(struct intr_frame *f) {
         f->eax = open((const char *)args[0]);
         break;
     case SYS_FILESIZE:
+        f->eax = filesize(args[0]);
         break;
     case SYS_READ:
+        f->eax = read(args[0], (void *)args[1], args[2]);
         break;
     case SYS_WRITE:
         f->eax = write(args[0], (void *)args[1], args[2]);
@@ -136,6 +142,29 @@ bool create (const char *file_path, unsigned initial_size) {
     return filesys_create(file_path, initial_size);
 
 }
+
+int read(int fd, const void *buffer, unsigned size) {
+
+    if (fd == STDIN_FILENO) {
+        unsigned i;
+        uint8_t *getc_buffer = (uint8_t *) buffer;
+        for (i = 0; i < size; i++) {
+            getc_buffer[i] = input_getc();
+        }
+        return size;
+    }
+    //lock_acuqire(&filesys_lock);
+
+
+    struct file *file = find_file(fd);
+    if (file == NULL) {
+        //lock_release(&filesys_lock);
+        return -1;
+    }
+    int read_size = file_read(file, buffer, size);
+    return read_size;
+}
+
 
 int write(int fd, const void *buffer, unsigned size) {
 
@@ -196,15 +225,15 @@ int open (const char *file_path) {
 
     if(file != NULL) {
         struct thread *t = thread_current();
-        struct file_handler *fh;
+//        struct file_handler fh;
+//        struct file_handler *fh_p = &fh;
+        struct file_handler *fh_p = malloc(sizeof(struct file_handler));
         t->fd++;
-        fh->fd = t->fd;
-        fh->file = file;
-        list_push_back(&t->file_handler, &fh->elem);
-
+        fh_p->fd = t->fd;
+        fh_p->file = file;
+        list_push_back(&t->file_handler_list, &fh_p->elem);
         return t->fd;
     }
-    printf("opening fd: %d\n", thread_current()->fd);
     return -1;
 }
 
@@ -214,8 +243,8 @@ int filesize(int fd) {
     if (file != NULL) {
         return file_length(file);
     }
-    exit(-1);
-
+    return -1;
+//    exit(-1);
 }
 
 struct file *find_file(int fd) {
@@ -223,14 +252,16 @@ struct file *find_file(int fd) {
     struct list_elem *e;
     struct thread *cur = thread_current();
     struct file_handler *fh;
-    for (e = list_begin(&cur->file_handler); e != list_end(&cur->file_handler);
-            e = list_next(e)) {
-        fh = list_entry(e, struct file_handler, elem);
-        if (fh->fd == fd) {
-            return fh->file;
+
+    if (!list_empty(&cur->file_handler_list)) {
+        for (e = list_begin(&cur->file_handler_list);
+                e != list_end(&cur->file_handler_list); e = list_next(e)) {
+            fh = list_entry(e, struct file_handler, elem);
+            if (fh->fd == fd) {
+                return fh->file;
+            }
         }
     }
-
     return NULL;
 
 }
