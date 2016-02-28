@@ -57,12 +57,9 @@ void syscall_init(void) {
 
 static void syscall_handler(struct intr_frame *f) {
 
+
     struct thread *t = thread_current();
     void *uaddr = f-> esp;
-
-//    if (!is_user_vaddr((void*) uaddr)) {
-//        thread_exit();
-//    }
 
     check_ptr_in_user_memory((const void *) uaddr);
 
@@ -109,7 +106,7 @@ static void syscall_handler(struct intr_frame *f) {
         break;
     case SYS_WRITE:
         args[1] = syscall_get_kernel_ptr((const char *) args[1]);
-        f->eax = write(args[0], (void *)args[1], args[2]);
+        f->eax = write((int)args[0], (const void *)args[1], (unsigned)args[2]);
         break;
     case SYS_SEEK:
         f->eax = write(args[0], (void *)args[1], args[2]);
@@ -239,7 +236,9 @@ int read(int fd, const void *buffer, unsigned size) {
 int write(int fd, const void *buffer, unsigned size) {
 
     //printf("=====fd is %d, ====writing: %s\n", fd, (char *)buffer);
-
+    if (fd == 0) {
+        return -1;
+    }
     if (fd == 1) {
         int written_size = 0;
         if (size < MAX_PUTBUF_SIZE) {
@@ -256,31 +255,31 @@ int write(int fd, const void *buffer, unsigned size) {
         }
         return written_size;
     } else {
-       // find_file(fd);
+        lock_acquire(&filesys_lock);
+        struct file* file = find_file(fd);
 
-        //printf("found file\n");
-
-//
+        int bytes = file_write(file, buffer, size);
 //        int written_size = 0;
 //        if (size < MAX_PUTBUF_SIZE) {
-//            file_write(find_file(fd), buffer, size);
+//            printf("small file\n");
+//            file_write(file, buffer, size);
+//            lock_release(&filesys_lock);
 //            return size;
 //        } else {
-//
-//
+//            printf("big file\n");
 //            while (size > MAX_PUTBUF_SIZE) {
-//                file_write(find_file(fd), buffer + written_size,
+//                file_write(file, buffer + written_size,
 //                        MAX_PUTBUF_SIZE);
 //                size -= MAX_PUTBUF_SIZE;
 //                written_size += MAX_PUTBUF_SIZE;
 //            }
-//            file_write(find_file(fd), buffer + written_size, size);
+//            file_write(file, buffer + written_size, size);
 //            written_size += size;
 //        }
-//        return written_size;
-        return size;
-    }
 
+        lock_release(&filesys_lock);
+        return bytes;
+    }
 }
 
 bool remove (const char *file_path) {
@@ -308,7 +307,7 @@ int open (const char *file_path) {
     lock_acquire(&filesys_lock);
 
     struct file *file = filesys_open(file_path);
-
+    //file_deny_write(file);
     int fd = -1;
 
     if(file != NULL) {
@@ -345,8 +344,7 @@ struct file *find_file(int fd) {
     if(file_handler != NULL) {
         return file_handler->file;
     }
-
-    return NULL;
+    exit(-1);
 
 }
 
@@ -378,11 +376,13 @@ void close (int fd) {
     if(file_handler != NULL) {
       struct file *file = file_handler->file;
       if(file != NULL) {
+         //file_allow_write(file);
          file_close(file);
          list_remove(&file_handler->elem);
          free(file_handler);
       }
     }
+
     lock_release(&filesys_lock);
 
 }

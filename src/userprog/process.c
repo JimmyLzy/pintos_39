@@ -232,6 +232,7 @@ int process_wait(tid_t child_tid) {
     }
     child_thread->exit_sema = &sema;
     child_thread->is_waiting = true;
+
     sema_down(&sema);
 
     child_thread->is_waiting = false;
