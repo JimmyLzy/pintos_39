@@ -310,6 +310,22 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
     return tid;
 }
 
+struct thread* get_child_thread(tid_t child_tid) {
+    struct list_elem *e;
+    struct list *child_list = &thread_current()->child_list;
+    struct thread *child_thread;
+    if (!list_empty(child_list)) {
+        for (e = list_begin(child_list); e != list_end(child_list); e =
+                list_next(e)) {
+            child_thread = list_entry(e, struct thread, child_list_elem);
+            if (child_thread->tid == child_tid) {
+                return child_thread;
+            }
+        }
+    }
+
+    return NULL;
+}
 
 /* Puts the current thread to sleep.  It will not be scheduled
  again until awoken by thread_unblock().

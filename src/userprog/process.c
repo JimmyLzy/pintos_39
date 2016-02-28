@@ -216,36 +216,29 @@ setup_esp (char *file_name, char **save, void *esp, int arglen)
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
-int
-process_wait (tid_t child_tid UNUSED)
-{
-
-//    while (true) {
-//
-//    }
+int process_wait(tid_t child_tid) {
     struct thread *t = thread_current();
     struct list *child_list = &t->child_list;
-    struct thread *child_thread;
+
     struct list_elem *e;
     struct semaphore sema;
     sema_init(&sema, 0);
-    for (e = list_begin(child_list); e != list_end(child_list);
-            e = list_next(e)) {
-        child_thread = list_entry(e, struct thread, child_list_elem);
-        if (child_thread->tid == child_tid) {
-            //printf("thread %s is waiting.., parent is %s\n", child_thread->name, t->name);
-            child_thread->exit_sema = &sema;
-            sema_down(&sema);
-            break;
-        }
+    struct thread *child_thread = get_child_thread(child_tid);
+    if (child_thread == NULL) {
+        return -1;
     }
-
-//    int status = child_thread->status;
-//    t->status = status;
+    if (child_thread->is_waiting) {
+        return -1;
+    }
+    child_thread->exit_sema = &sema;
+    child_thread->is_waiting = true;
+    sema_down(&sema);
+    child_thread->is_waiting = false;
+//    int status = child_thread->return_status;
+//    thread_current()->return_status = status;
 //    child_thread -> parent = NULL;
-//    list_remove(&child_thread->child_list_elem);
-
-    return -1;
+    //list_remove(&child_thread->child_list_elem);
+    return child_thread->return_status;
 }
 
 /* Free the current process's resources. */

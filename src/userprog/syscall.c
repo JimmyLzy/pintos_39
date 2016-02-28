@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 #include "filesys/filesys.h"
+#include "threads/synch.h"
 
 //number of system call types
 #define SYSCALL_NUM 13
@@ -27,9 +28,13 @@ static void syscall_handler(struct intr_frame *f);
 
 static int* syscall_get_args(struct intr_frame *f, int syscall_num);
 
+static struct lock filesys_lock; /* File system lock. */
+
 void syscall_init(void) {
 
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
+
+    lock_init(&filesys_lock);
 
     syscall_args_num[SYS_HALT] = 0;
     syscall_args_num[SYS_EXIT] = 1;
@@ -73,35 +78,57 @@ static void syscall_handler(struct intr_frame *f) {
         exit(args[0]);
         break;
     case SYS_EXEC:
+        args[0] = syscall_get_kernel_ptr((const char *) args[0]);
         f->eax = exec((const char*)args[0]);
         break;
     case SYS_WAIT:
         f->eax = wait(args[0]);
         break;
     case SYS_CREATE:
+        args[0] = syscall_get_kernel_ptr((const char *) args[0]);
         f->eax = create((const char *)args[0], args[1]);
         break;
     case SYS_REMOVE:
+        f->eax = remove((const char *) args[0]);
         break;
     case SYS_OPEN:
+        args[0] = syscall_get_kernel_ptr((const char *) args[0]);
         f->eax = open((const char *)args[0]);
         break;
     case SYS_FILESIZE:
         f->eax = filesize(args[0]);
         break;
     case SYS_READ:
+        args[1] = syscall_get_kernel_ptr((const char *) args[1]);
         f->eax = read(args[0], (void *)args[1], args[2]);
         break;
     case SYS_WRITE:
+        args[1] = syscall_get_kernel_ptr((const char *) args[1]);
         f->eax = write(args[0], (void *)args[1], args[2]);
         break;
     case SYS_SEEK:
+        f->eax = write(args[0], (void *)args[1], args[2]);
+        break;
     case SYS_TELL:
+        f->eax = tell((const char *) args[0]);
+        break;
     case SYS_CLOSE:
-
+        close(args[0]);
+        break;
     default:
         break;
     }
+}
+
+int syscall_get_kernel_ptr(const void *vaddr) {
+    if (!is_user_vaddr(vaddr)) {
+        exit(-1);
+    }
+    void *ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
+    if (ptr == NULL) {
+        exit(-1);
+    }
+    return (int) ptr;
 }
 
 static int* syscall_get_args(struct intr_frame *f, int syscall_num) {
@@ -126,6 +153,17 @@ void exit(int status) {
     struct thread *t = thread_current();
     printf("%s: exit(%d)\n", t->name, status);
     t->return_status = status;
+
+    struct thread *curr = thread_current();
+
+    /*Close all the files and free all the file handler*/
+
+    int fd = curr->fd;
+    while(fd > 1) {
+        close(fd);
+        fd--;
+    }
+
     thread_exit();
 }
 
@@ -134,12 +172,28 @@ pid_t exec(const char *cmd_line) {
 }
 
 int wait(pid_t pid) {
-    return process_wait(pid);
+//    struct thread* child_thread = get_child_thread(pid);
+//    if ()
+    struct thread* child_thread = get_child_thread(pid);
+    process_wait(pid);
+
+
+    return child_thread->return_status;
 }
 
 bool create (const char *file_path, unsigned initial_size) {
 
-    return filesys_create(file_path, initial_size);
+    if(file_path == NULL) {
+      exit(-1);
+    }
+
+    lock_acquire(&filesys_lock);
+
+    bool success = filesys_create(file_path, initial_size);
+
+    lock_release(&filesys_lock);
+
+    return success;
 
 }
 
@@ -215,26 +269,47 @@ int write(int fd, const void *buffer, unsigned size) {
 
 bool remove (const char *file_path) {
 
-	return filesys_remove(file_path); 
+    if(file_path == NULL) {
+      exit(-1);
+    }
+
+    lock_acquire(&filesys_lock);
+
+    bool success = filesys_remove(file_path);
+
+    lock_release(&filesys_lock);
+
+    return success;
 
 }
 
 int open (const char *file_path) {
 
+    if(file_path == NULL) {
+      exit(-1);
+    }
+
+    lock_acquire(&filesys_lock);
+
     struct file *file = filesys_open(file_path);
+
+    int fd = -1;
 
     if(file != NULL) {
         struct thread *t = thread_current();
-//        struct file_handler fh;
-//        struct file_handler *fh_p = &fh;
+        // struct file_handler fh;
         struct file_handler *fh_p = malloc(sizeof(struct file_handler));
+
         t->fd++;
         fh_p->fd = t->fd;
         fh_p->file = file;
         list_push_back(&t->file_handler_list, &fh_p->elem);
-        return t->fd;
+
+        fd = t->fd;
     }
-    return -1;
+
+    lock_release(&filesys_lock);
+    return fd;
 }
 
 int filesize(int fd) {
@@ -249,20 +324,80 @@ int filesize(int fd) {
 
 struct file *find_file(int fd) {
 
+    struct file_handler *file_handler = find_file_handler(fd);
+
+    if(file_handler != NULL) {
+        return file_handler->file;
+    }
+
+    return NULL;
+
+}
+
+struct file_handler *find_file_handler(int fd) {
+
     struct list_elem *e;
     struct thread *cur = thread_current();
     struct file_handler *fh;
 
-    if (!list_empty(&cur->file_handler_list)) {
-        for (e = list_begin(&cur->file_handler_list);
-                e != list_end(&cur->file_handler_list); e = list_next(e)) {
-            fh = list_entry(e, struct file_handler, elem);
-            if (fh->fd == fd) {
-                return fh->file;
-            }
-        }
+
+    if(!list_empty(&cur->file_handler_list)) {
+      for (e = list_begin(&cur->file_handler_list); e != list_end(&cur->file_handler_list);
+              e = list_next(e)) {
+          fh = list_entry(e, struct file_handler, elem);
+          if (fh->fd == fd) {
+              return fh;
+          }
+       }
     }
+
     return NULL;
+
+}
+
+void close (int fd) {
+
+    lock_acquire(&filesys_lock);
+    struct file_handler *file_handler = find_file_handler(fd);
+    if(file_handler != NULL) {
+      struct file *file = file_handler->file;
+      if(file != NULL) {
+         file_close(file);
+         list_remove(&file_handler->elem);
+         free(file_handler);
+      }
+    }
+    lock_release(&filesys_lock);
+
+}
+
+unsigned tell (int fd) {
+
+    lock_acquire(&filesys_lock);
+
+    struct file *file = find_file(fd);
+    if (file != NULL) {
+
+        lock_release(&filesys_lock);
+        return file_tell(file);
+    }
+    lock_release(&filesys_lock);
+    exit(-1);
+
+}
+
+void seek (int fd, unsigned position) {
+
+    lock_acquire(&filesys_lock);
+
+    struct file *file = find_file(fd);
+    if (file != NULL) {
+
+        lock_release(&filesys_lock);
+        return file_seek(file, position);
+    }
+    lock_release(&filesys_lock);
+    exit(-1);
 
 }
 

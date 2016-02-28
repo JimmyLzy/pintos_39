@@ -18,13 +18,19 @@ int read(int fd, const void *buffer, unsigned size);
 
 int write(int fd, const void *buffer, unsigned size);
 
-bool create (const char *file_path, unsigned initial_size);
+bool create(const char *file_path, unsigned initial_size);
 
-bool remove (const char *file_path);
+bool remove(const char *file_path);
 
-int open (const char *file_path);
+int open(const char *file_path);
+
+void close(int fd);
 
 struct file *find_file(int fd);
+
+struct file_handler *find_file_handler(int fd);
+
+unsigned tell(int fd);
 
 int filesize(int fd);
 #endif /* userprog/syscall.h */
