@@ -20,6 +20,9 @@
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 
+/* code-segment lower bound */
+#define CODE_SEGMENT_BOTTON ((void *) 0x08048000)
+
 static int syscall_args_num[SYSCALL_NUM];
 
 static void syscall_handler(struct intr_frame *);
@@ -57,9 +60,11 @@ static void syscall_handler(struct intr_frame *f) {
     struct thread *t = thread_current();
     void *uaddr = f-> esp;
 
-    if (!is_user_vaddr((void*) uaddr)) {
-        thread_exit();
-    }
+//    if (!is_user_vaddr((void*) uaddr)) {
+//        thread_exit();
+//    }
+
+    check_ptr_in_user_memory((const void *) uaddr);
 
     int syscall_num = *(int *) pagedir_get_page(t -> pagedir, uaddr);
 
@@ -121,14 +126,18 @@ static void syscall_handler(struct intr_frame *f) {
 }
 
 int syscall_get_kernel_ptr(const void *vaddr) {
-    if (!is_user_vaddr(vaddr)) {
-        exit(-1);
-    }
+    check_ptr_in_user_memory(vaddr);
     void *ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
     if (ptr == NULL) {
         exit(-1);
     }
     return (int) ptr;
+}
+
+void check_ptr_in_user_memory(const void *vaddr) {
+    if (!is_user_vaddr(vaddr) || vaddr < CODE_SEGMENT_BOTTON) {
+        exit(-1);
+    }
 }
 
 static int* syscall_get_args(struct intr_frame *f, int syscall_num) {
@@ -138,6 +147,7 @@ static int* syscall_get_args(struct intr_frame *f, int syscall_num) {
     int *ptr;
     for (i = 0; i < args_num; i++) {
         ptr = (int *) f->esp + i + 1;
+        check_ptr_in_user_memory((const void *) ptr);
         args[i] = *ptr;
     }
     return args;
@@ -153,7 +163,9 @@ void exit(int status) {
     struct thread *t = thread_current();
     printf("%s: exit(%d)\n", t->name, status);
     t->return_status = status;
-
+    if (t->parent != NULL) {
+        t->parent->return_status = status;
+    }
     struct thread *curr = thread_current();
 
     /*Close all the files and free all the file handler*/
@@ -173,12 +185,16 @@ pid_t exec(const char *cmd_line) {
 
 int wait(pid_t pid) {
 //    struct thread* child_thread = get_child_thread(pid);
-//    if ()
-    struct thread* child_thread = get_child_thread(pid);
-    process_wait(pid);
+//    if (child_thread != NULL) {
+//        int status = child_thread->return_status;
+//        process_wait(pid);
+//        return thread_current()->return_status;
+//    }
+    //struct thread* child_thread = get_child_thread(pid);
+    return process_wait(pid);
 
 
-    return child_thread->return_status;
+//    return child_thread->return_status;
 }
 
 bool create (const char *file_path, unsigned initial_size) {

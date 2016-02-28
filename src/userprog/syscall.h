@@ -6,6 +6,10 @@ typedef int pid_t;
 
 void syscall_init (void);
 
+int syscall_get_kernel_ptr(const void *vaddr);
+
+void check_ptr_in_user_memory(const void *vaddr);
+
 void halt(void);
 
 void exit(int status);

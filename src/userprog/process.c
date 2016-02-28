@@ -233,12 +233,13 @@ int process_wait(tid_t child_tid) {
     child_thread->exit_sema = &sema;
     child_thread->is_waiting = true;
     sema_down(&sema);
+
     child_thread->is_waiting = false;
 //    int status = child_thread->return_status;
 //    thread_current()->return_status = status;
 //    child_thread -> parent = NULL;
     //list_remove(&child_thread->child_list_elem);
-    return child_thread->return_status;
+    return t->return_status;
 }
 
 /* Free the current process's resources. */
@@ -249,6 +250,7 @@ process_exit (void)
   uint32_t *pd;
 
   //printf("thread %s is exiting..\n", cur->name);
+  list_remove(&cur->child_list_elem);
   sema_up(cur->exit_sema);
 
   /* Destroy the current process's page directory and switch back
