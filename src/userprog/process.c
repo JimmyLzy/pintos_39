@@ -39,8 +39,11 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  /*  */
-  int arguments_length = 8 * 128;
+  /* Tokenize the file name out from a copy of the original arguments
+     string. */
+  const int bytes_limit = 128;
+  const int bit_in_byte = 8;
+  const int arguments_length = bit_in_byte * bytes_limit;
   char *fn_copy_ = palloc_get_page (0);
   if (fn_copy_ == NULL)
     return TID_ERROR;
@@ -113,25 +116,29 @@ static void start_process(void *file_name_) {
     ;
 }
 
-/* */
+/* Push all the arguments and arguments' adresses onto the stack
+   in reverse order. Push the number of argument argc and the return
+   address onto the stack.
+*/
+
 
 void *
 setup_esp (char *file_name, char **save, void *esp, int arglen)
 {
+
+  const int size_of_pointer = 4;
+
   enum intr_level old_level;
 
   old_level = intr_disable();
 
   /* Allocate space for the arguments array. */
 
-  //char **argv = (char **) malloc(arglen * sizeof(char *));
+  char **argv = (char **) malloc(arglen * sizeof(char *));
 
-  char temp[256];
-  char **argv = &temp;
-
-//  if (argv == NULL) {
-//    PANIC ("Allocation of memory fails.");
-//  }
+  if (argv == NULL) {
+    PANIC ("Allocation of memory of argv fails.");
+  }
 
   /* Tokenize the arguments out and store them in the array.
      Also count the number of the arguments and the arglen
@@ -147,70 +154,49 @@ setup_esp (char *file_name, char **save, void *esp, int arglen)
     token = strtok_r (NULL, " ", save);
   }
 
-//  /* Store the address of the arguments in the array created.*/
-//  int **argv_address = (int **) malloc (argc * sizeof(int *));
-//  if (argv_address == NULL) {
-//    PANIC ("Allocation of memory fails.");
-//  }
-
-  int address[256];
-  int **argv_address = &address;
+  /* Push the address of the arguments in the array created 
+     onto the stack. */
+  int **argv_address = (int **) malloc (argc * sizeof(int *));
+  if (argv_address == NULL) {
+    PANIC ("Allocation of memory of argument addresses fails.");
+  }
 
   int i;
   for (i = argc - 1; i >= 0; i--) {
     size_t arg_len = strlen(argv[i]) + 1;
     esp = esp - arg_len;
-//    printf("argument address: %04x\n",esp);
     memcpy (esp, argv[i], arg_len);
     argv_address[i] = esp;
-//    printf("argument contents: %s\n", argv_address[i]);
   }
 
   /* Allocate space for word-align. */
-  int word_align = arglen % 4;
+  int word_align = arglen % size_of_pointer;
   if (word_align != 0) {
-    word_align = 4 - word_align;
+    word_align = size_of_pointer - word_align;
   }
   esp = esp - word_align;
-//  printf("word align address: %04x\n",esp);
-//  printf("\n");
 
   /* Representing the NULL value at the end of arguments. */
-  esp = esp - 4;
+  esp = esp - size_of_pointer;
   *((int *)esp) = 0;
-//  printf("array end NULL address: %04x\n",esp);
-//  printf("\n");
 
   /* Allocate space and push arguments onto the Stack. */
   for (i = argc - 1; i >= 0; i--) {
-    esp = esp - 4;
+    esp = esp - size_of_pointer;
     *(int **)esp = argv_address[i];
-//     printf("argument address: %04x\n",esp);
-//     printf("argument contents: %04x\n",*(int **)esp);
   }
-//  printf("\n");
 
-  esp = esp - 4;
-  *(int **) esp = esp + 4;
-//  printf("argument entry address: %04x\n",esp);
-//  printf("argument entry content: %04x\n",*(int **)esp);
-//  printf("\n");
+  esp = esp - size_of_pointer;
+  *(int **) esp = esp + size_of_pointer;
 
-  esp = esp - 4;
+  esp = esp - size_of_pointer;
   *((int *)esp) = argc;
-//  printf("argc: %04x\n",esp);
-//  printf("its content: %d\n",*(int *)esp);
-//  printf("\n");
 
-  esp = esp - 4;
+  esp = esp - size_of_pointer;
   *((int *)esp) = 0;
-//  printf("return address :%04x\n",esp);
 
-//  free (argv);
-//  free (argv_address);
-  //printf('%d', 123123);
-
-  //hex_dump(esp, esp, 100, true);
+  free (argv);
+  free (argv_address);
 
   intr_set_level(old_level);
 
