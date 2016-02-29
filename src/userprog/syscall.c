@@ -141,6 +141,9 @@ void check_ptr_in_user_memory(const void *vaddr) {
 
 static int* syscall_get_args(struct intr_frame *f, int syscall_num) {
     int *args = (int*) malloc(MAX_ARGS_NUM);
+    if (args == NULL) {
+        PANIC ("Allocation of memory of arguments fails.");
+    }    
     int args_num = syscall_args_num[syscall_num];
     int i;
     int *ptr;
@@ -179,6 +182,7 @@ void exit(int status) {
 }
 
 pid_t exec(const char *cmd_line) {
+
     return process_execute(cmd_line);
 }
 
@@ -223,15 +227,15 @@ int read(int fd, const void *buffer, unsigned size) {
         return size;
     }
 
-    lock_acquire(&filesys_lock);
+    // lock_acquire(&filesys_lock);
     struct file *file = find_file(fd);
 
     if (file == NULL) {
-        lock_release(&filesys_lock);
+        // lock_release(&filesys_lock);
         return -1;
     }
     int read_size = file_read(file, buffer, size);
-    lock_release(&filesys_lock);
+    // lock_release(&filesys_lock);
     return read_size;
 }
 
@@ -315,14 +319,17 @@ int open (const char *file_path) {
     lock_acquire(&filesys_lock);
 
     struct file *file = filesys_open(file_path);
-    //file_deny_write(file);
+
+    // file_deny_write(file);
     int fd = -1;
 
     if(file != NULL) {
         struct thread *t = thread_current();
         // struct file_handler fh;
         struct file_handler *fh_p = malloc(sizeof(struct file_handler));
-
+        if (fh_p == NULL) {
+            PANIC ("Allocation of memory of file handler fails.");
+        }
         t->fd++;
         fh_p->fd = t->fd;
         fh_p->file = file;
@@ -334,6 +341,7 @@ int open (const char *file_path) {
     lock_release(&filesys_lock);
     return fd;
 }
+
 
 int filesize(int fd) {
 
@@ -384,7 +392,7 @@ void close (int fd) {
     if(file_handler != NULL) {
       struct file *file = file_handler->file;
       if(file != NULL) {
-         //file_allow_write(file);
+         file_allow_write(file);
          file_close(file);
          list_remove(&file_handler->elem);
          free(file_handler);

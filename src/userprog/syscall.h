@@ -38,4 +38,5 @@ void check_ptr_in_user_memory(const void *vaddr);
 
 int syscall_get_kernel_ptr(const void *vaddr);
 
+
 #endif /* userprog/syscall.h */

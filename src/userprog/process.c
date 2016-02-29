@@ -77,6 +77,9 @@ start_process (void *file_name_)
   char *save;
   char *name = strtok_r (file_name, " ", &save);
 
+  struct file *file = filesys_open(name);
+  file_deny_write(file);
+
   success = load (name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. Otherwise, push arguments
