@@ -29,6 +29,16 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name)
 {
+
+  /* Maximun arguments length from command line. */
+  const int kb_limit = 4;
+  const int kb_in_byte = 1024;
+  const int byte_in_bit = 8;
+  const int arguments_length = kb_limit * kb_in_byte * byte_in_bit;
+  if (strlen(file_name) > arguments_length) {
+    exit(-1);
+  }
+
   char *fn_copy;
   tid_t tid;
 
@@ -41,9 +51,6 @@ process_execute (const char *file_name)
 
   /* Tokenize the file name out from a copy of the original arguments
      string. */
-  const int bytes_limit = 128;
-  const int bit_in_byte = 8;
-  const int arguments_length = bit_in_byte * bytes_limit;
   char *fn_copy_ = palloc_get_page (0);
   if (fn_copy_ == NULL)
     return TID_ERROR;
@@ -80,6 +87,9 @@ static void start_process(void *file_name_) {
     char *name = strtok_r(file_name, " ", &save);
 
     struct file *file = filesys_open(name);
+    if(file != NULL) {
+      file_deny_write(file);
+    }
     struct file_handler *fh_p = malloc(sizeof(struct file_handler));
     if (fh_p == NULL) {
         PANIC("Allocation of memory of file handler fails.");
@@ -88,7 +98,7 @@ static void start_process(void *file_name_) {
     fh_p->fd = cur->fd;
     fh_p->file = file;
     list_push_back(&cur->file_handler_list, &fh_p->elem);
-    file_deny_write(file);
+
 
     success = load(name, &if_.eip, &if_.esp);
 
