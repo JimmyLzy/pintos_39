@@ -103,13 +103,12 @@ struct thread {
     struct list donation_locks;     /* List of locks whose holder is this thread */
 
     int nice;                       /* Nice.*/
-    int32_t recent_cpu;             /*Fixed-Point representation of Recent_cpu*/
+    int32_t recent_cpu;             /* Fixed-Point representation of Recent_cpu */
 
+/* Owned by userprog/process.c. */
 #ifdef USERPROG
-    /* Owned by userprog/process.c. */
-    uint32_t *pagedir; /* Page directory. */
-#endif
 
+    uint32_t *pagedir;              /* Page directory. */
     int return_status;
     struct thread *parent;
 
@@ -118,8 +117,11 @@ struct thread {
     struct list child_list;
     struct list_elem child_list_elem;
     bool is_waiting;
-    struct list file_handler_list;
-    int fd;
+    struct list file_handler_list;  /* A list to store file handlers. */
+    int fd;                         /* Track the current number of files opened. */
+
+#endif
+
 
     /* Owned by thread.c. */
     unsigned magic; /* Detects stack overflow. */

@@ -57,7 +57,6 @@ void syscall_init(void) {
 
 static void syscall_handler(struct intr_frame *f) {
 
-
     struct thread *t = thread_current();
     void *uaddr = f-> esp;
 
@@ -200,6 +199,9 @@ int wait(pid_t pid) {
 //    return child_thread->return_status;
 }
 
+/* Create a file with the given file path and initial size
+   by calling the filesys_create() method. Return true upon
+   success. */
 bool create (const char *file_path, unsigned initial_size) {
 
     if(file_path == NULL) {
@@ -207,9 +209,7 @@ bool create (const char *file_path, unsigned initial_size) {
     }
 
     lock_acquire(&filesys_lock);
-
     bool success = filesys_create(file_path, initial_size);
-
     lock_release(&filesys_lock);
 
     return success;
@@ -294,6 +294,8 @@ int write(int fd, const void *buffer, unsigned size) {
     }
 }
 
+/* Remove the file with the given file path by calling the
+   filesys_remove() method. Return true upon success. */
 bool remove (const char *file_path) {
 
     if(file_path == NULL) {
@@ -301,15 +303,17 @@ bool remove (const char *file_path) {
     }
 
     lock_acquire(&filesys_lock);
-
     bool success = filesys_remove(file_path);
-
     lock_release(&filesys_lock);
 
     return success;
 
 }
 
+/* Open the file with the given file path by calling the
+   filesys_open() method. Store the opened file and its 
+   file descripter to a file handler in heap and push the 
+   handler to the back of file handler list. */
 int open (const char *file_path) {
 
     if(file_path == NULL) {
@@ -319,13 +323,9 @@ int open (const char *file_path) {
     lock_acquire(&filesys_lock);
 
     struct file *file = filesys_open(file_path);
-
-    // file_deny_write(file);
     int fd = -1;
-
     if(file != NULL) {
         struct thread *t = thread_current();
-        // struct file_handler fh;
         struct file_handler *fh_p = malloc(sizeof(struct file_handler));
         if (fh_p == NULL) {
             PANIC ("Allocation of memory of file handler fails.");
@@ -334,7 +334,6 @@ int open (const char *file_path) {
         fh_p->fd = t->fd;
         fh_p->file = file;
         list_push_back(&t->file_handler_list, &fh_p->elem);
-
         fd = t->fd;
     }
 
@@ -342,7 +341,7 @@ int open (const char *file_path) {
     return fd;
 }
 
-
+/* Return the file size of a file with the given file descripter. */
 int filesize(int fd) {
 
     struct file *file = find_file(fd);
@@ -350,9 +349,13 @@ int filesize(int fd) {
         return file_length(file);
     }
     return -1;
-//    exit(-1);
+
 }
 
+/* Find the file with given file descripter in the file handler list
+   by calling find_file_handler(). Return the file on success
+   , otherwise return null.
+ */
 struct file *find_file(int fd) {
 
     struct file_handler *file_handler = find_file_handler(fd);
@@ -364,6 +367,10 @@ struct file *find_file(int fd) {
 
 }
 
+/* Loop through the file_handler_list of the current thread and find
+   the file handler by comparing the file descriptor. Return the file
+   handler on success, otherwise return null.
+ */
 struct file_handler *find_file_handler(int fd) {
 
     struct list_elem *e;
@@ -385,6 +392,10 @@ struct file_handler *find_file_handler(int fd) {
 
 }
 
+/*Find the file using file descriptor. Close the file by calling file_close()
+  and remove the file handler from the list when successfully finding the file.
+  Also free the file handler on success.
+*/
 void close (int fd) {
 
     lock_acquire(&filesys_lock);
@@ -403,6 +414,11 @@ void close (int fd) {
 
 }
 
+/*Find the file using file descriptor. Return the position of the next byte to
+  be read or written of the file by calling file_tell() on success. Otherwise,
+  exit the process with -1.
+*/
+
 unsigned tell (int fd) {
 
     lock_acquire(&filesys_lock);
@@ -418,6 +434,10 @@ unsigned tell (int fd) {
 
 }
 
+/*Find the file using file descriptor. Changes the next byte to be read or written 
+  in the file to position by calling file_seek(), expressed in bytes from the 
+  beginning of the file on success. Otherwise, exit the process with -1; 
+*/
 void seek (int fd, unsigned position) {
 
     lock_acquire(&filesys_lock);
