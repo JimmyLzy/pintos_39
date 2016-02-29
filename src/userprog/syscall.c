@@ -109,7 +109,7 @@ static void syscall_handler(struct intr_frame *f) {
         f->eax = write((int)args[0], (const void *)args[1], (unsigned)args[2]);
         break;
     case SYS_SEEK:
-        f->eax = write(args[0], (void *)args[1], args[2]);
+        f->eax = seek((int)args[0], (unsigned)args[1]);
         break;
     case SYS_TELL:
         f->eax = tell((const char *) args[0]);
@@ -120,6 +120,8 @@ static void syscall_handler(struct intr_frame *f) {
     default:
         break;
     }
+
+    free(args);
 }
 
 int syscall_get_kernel_ptr(const void *vaddr) {
@@ -220,15 +222,16 @@ int read(int fd, const void *buffer, unsigned size) {
         }
         return size;
     }
-    //lock_acuqire(&filesys_lock);
 
-
+    lock_acquire(&filesys_lock);
     struct file *file = find_file(fd);
+
     if (file == NULL) {
-        //lock_release(&filesys_lock);
+        lock_release(&filesys_lock);
         return -1;
     }
     int read_size = file_read(file, buffer, size);
+    lock_release(&filesys_lock);
     return read_size;
 }
 
@@ -236,12 +239,12 @@ int read(int fd, const void *buffer, unsigned size) {
 int write(int fd, const void *buffer, unsigned size) {
 
     //printf("=====fd is %d, ====writing: %s\n", fd, (char *)buffer);
-    if (fd == 0) {
-        return -1;
-    }
-    if (fd == 1) {
+    // if (fd == 0) {
+    //     return -1;
+    // }
+    if (fd == STDOUT_FILENO) {
         int written_size = 0;
-        if (size < MAX_PUTBUF_SIZE) {
+        if (size <= MAX_PUTBUF_SIZE) {
             putbuf((char *) buffer, size);
             return size;
         } else {
@@ -257,8 +260,13 @@ int write(int fd, const void *buffer, unsigned size) {
     } else {
         lock_acquire(&filesys_lock);
         struct file* file = find_file(fd);
-
+        
+        if(file == NULL) {
+            lock_release(&filesys_lock);
+            exit(-1);
+        }
         int bytes = file_write(file, buffer, size);
+
 //        int written_size = 0;
 //        if (size < MAX_PUTBUF_SIZE) {
 //            printf("small file\n");
