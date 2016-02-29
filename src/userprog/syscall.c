@@ -168,11 +168,9 @@ void exit(int status) {
     if (t->parent != NULL) {
         t->parent->return_status = status;
     }
-    struct thread *curr = thread_current();
 
     /*Close all the files and free all the file handler*/
-
-    int fd = curr->fd;
+    int fd = t->fd;
     while(fd > 1) {
         close(fd);
         fd--;
@@ -242,10 +240,9 @@ int read(int fd, const void *buffer, unsigned size) {
 
 int write(int fd, const void *buffer, unsigned size) {
 
-    //printf("=====fd is %d, ====writing: %s\n", fd, (char *)buffer);
-    // if (fd == 0) {
-    //     return -1;
-    // }
+//     if (fd == 0) {
+//         return -1;
+//     }
     if (fd == STDOUT_FILENO) {
         int written_size = 0;
         if (size <= MAX_PUTBUF_SIZE) {
@@ -263,14 +260,15 @@ int write(int fd, const void *buffer, unsigned size) {
         return written_size;
     } else {
         lock_acquire(&filesys_lock);
+
         struct file* file = find_file(fd);
         
         if(file == NULL) {
             lock_release(&filesys_lock);
             exit(-1);
         }
-        int bytes = file_write(file, buffer, size);
 
+        int bytes = file_write(file, buffer, size);
 //        int written_size = 0;
 //        if (size < MAX_PUTBUF_SIZE) {
 //            printf("small file\n");
@@ -290,6 +288,7 @@ int write(int fd, const void *buffer, unsigned size) {
 //        }
 
         lock_release(&filesys_lock);
+
         return bytes;
     }
 }
@@ -320,7 +319,6 @@ int open (const char *file_path) {
 
     struct file *file = filesys_open(file_path);
 
-    // file_deny_write(file);
     int fd = -1;
 
     if(file != NULL) {
@@ -392,7 +390,6 @@ void close (int fd) {
     if(file_handler != NULL) {
       struct file *file = file_handler->file;
       if(file != NULL) {
-         file_allow_write(file);
          file_close(file);
          list_remove(&file_handler->elem);
          free(file_handler);
