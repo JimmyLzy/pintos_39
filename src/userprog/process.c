@@ -86,6 +86,8 @@ static void start_process(void *file_name_) {
     char *save;
     char *name = strtok_r(file_name, " ", &save);
 
+    
+    /* Open the executable file and disable write to the file. */
     struct file *file = filesys_open(name);
     if(file != NULL) {
       file_deny_write(file);
@@ -112,7 +114,6 @@ static void start_process(void *file_name_) {
         if_.esp = setup_esp(name, &save, if_.esp, arglen);
     }
 
-//  printf("return address :%04x\n",if_.esp);
     palloc_free_page(file_name);
 
     /* Start the user process by simulating a return from an
@@ -196,15 +197,19 @@ setup_esp (char *file_name, char **save, void *esp, int arglen)
     *(int **)esp = argv_address[i];
   }
 
+  /* Allocate space and push address of agrv[0] onto the Stack. */
   esp = esp - size_of_pointer;
   *(int **) esp = esp + size_of_pointer;
 
+  /* Allocate space and push argc onto the Stack. */
   esp = esp - size_of_pointer;
   *((int *)esp) = argc;
 
+  /* Allocate space and push a fake return address onto the Stack. */
   esp = esp - size_of_pointer;
   *((int *)esp) = 0;
 
+  /* Free the argv and argv_address. */
   free (argv);
   free (argv_address);
 

@@ -118,14 +118,19 @@ struct thread {
     struct list_elem child_list_elem;
     bool is_waiting;
     struct list file_handler_list;  /* A list to store file handlers. */
-    int fd;                         /* Track the current number of files opened. */
+    int fd;                         /* Accumulate fd and used to track the 
+                                       current number of files opened. 
+                                    */
 
 #endif
-
 
     /* Owned by thread.c. */
     unsigned magic; /* Detects stack overflow. */
 };
+
+/* File handler used to store the file descriptor
+   and the corresponding opened file by the thread.
+*/
 
 struct file_handler {
     int fd; /* File descriptor. */
