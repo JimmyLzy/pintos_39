@@ -259,15 +259,15 @@ int write(int fd, const void *buffer, unsigned size) {
         }
         return written_size;
     } else {
-        lock_acquire(&filesys_lock);
+
 
         struct file* file = find_file(fd);
 
         if (file == NULL) {
-            lock_release(&filesys_lock);
             exit(-1);
         }
 
+        lock_acquire(&filesys_lock);
         int bytes = file_write(file, buffer, size);
 //        int written_size = 0;
 //        if (size < MAX_PUTBUF_SIZE) {
