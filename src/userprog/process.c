@@ -86,12 +86,12 @@ static void start_process(void *file_name_) {
     char *save;
     char *name = strtok_r(file_name, " ", &save);
 
-    
     /* Open the executable file and disable write to the file. */
     struct file *file = filesys_open(name);
     if(file != NULL) {
       file_deny_write(file);
     }
+
     struct file_handler *fh_p = malloc(sizeof(struct file_handler));
     if (fh_p == NULL) {
         PANIC("Allocation of memory of file handler fails.");
@@ -100,8 +100,6 @@ static void start_process(void *file_name_) {
     fh_p->fd = cur->fd;
     fh_p->file = file;
     list_push_back(&cur->file_handler_list, &fh_p->elem);
-
-
     success = load(name, &if_.eip, &if_.esp);
 
     /* If load failed, quit. Otherwise, push arguments
@@ -396,7 +394,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Open executable file. */
   file = filesys_open (file_name);
-  file_deny_write(file);
+  if(file != NULL) {
+    file_deny_write(file);
+  }
   if (file == NULL)
     {
       printf ("load: %s: open failed\n", file_name);
