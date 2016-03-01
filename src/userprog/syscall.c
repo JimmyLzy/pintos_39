@@ -184,17 +184,8 @@ pid_t exec(const char *cmd_line) {
 }
 
 int wait(pid_t pid) {
-//    struct thread* child_thread = get_child_thread(pid);
-//    if (child_thread != NULL) {
-//        int status = child_thread->return_status;
-//        process_wait(pid);
-//        return thread_current()->return_status;
-//    }
-    //struct thread* child_thread = get_child_thread(pid);
+
     return process_wait(pid);
-
-
-//    return child_thread->return_status;
 }
 
 /* Create a file with the given file path and initial size
@@ -225,15 +216,12 @@ int read(int fd, const void *buffer, unsigned size) {
         return size;
     }
 
-    // lock_acquire(&filesys_lock);
     struct file *file = find_file(fd);
 
     if (file == NULL) {
-        // lock_release(&filesys_lock);
         return -1;
     }
     int read_size = file_read(file, buffer, size);
-    // lock_release(&filesys_lock);
     return read_size;
 }
 
@@ -269,24 +257,6 @@ int write(int fd, const void *buffer, unsigned size) {
 
         lock_acquire(&filesys_lock);
         int bytes = file_write(file, buffer, size);
-//        int written_size = 0;
-//        if (size < MAX_PUTBUF_SIZE) {
-//            printf("small file\n");
-//            file_write(file, buffer, size);
-//            lock_release(&filesys_lock);
-//            return size;
-//        } else {
-//            printf("big file\n");
-//            while (size > MAX_PUTBUF_SIZE) {
-//                file_write(file, buffer + written_size,
-//                        MAX_PUTBUF_SIZE);
-//                size -= MAX_PUTBUF_SIZE;
-//                written_size += MAX_PUTBUF_SIZE;
-//            }
-//            file_write(file, buffer + written_size, size);
-//            written_size += size;
-//        }
-
         lock_release(&filesys_lock);
 
         return bytes;

@@ -248,10 +248,6 @@ int process_wait(tid_t child_tid) {
     sema_down(&sema);
 
     child_thread->is_waiting = false;
-//    int status = child_thread->return_status;
-//    thread_current()->return_status = status;
-//    child_thread -> parent = NULL;
-    //list_remove(&child_thread->child_list_elem);
     return t->return_status;
 }
 
@@ -262,7 +258,6 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  //printf("thread %s is exiting..\n", cur->name);
   list_remove(&cur->child_list_elem);
   sema_up(cur->exit_sema);
 
@@ -283,10 +278,6 @@ process_exit (void)
       pagedir_destroy (pd);
     }
 
-//  if (cur->parent != NULL) {
-//     cur->parent->return_status = cur->return_status;
-//  }
-  //sema_up(cur->semaphore);
 }
 
 /* Sets up the CPU for running user code in the current

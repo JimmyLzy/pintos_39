@@ -109,14 +109,14 @@ struct thread {
 #ifdef USERPROG
 
     uint32_t *pagedir;              /* Page directory. */
-    int return_status;
-    struct thread *parent;
+    int return_status;              /* Return status*/
+    struct thread *parent;          /* Parent thread*/
 
-    struct semaphore *exit_sema;
+    struct semaphore *exit_sema;    /* Used to control the exit of semaphore*/
 
-    struct list child_list;
-    struct list_elem child_list_elem;
-    bool is_waiting;
+    struct list child_list;         /* List to store child threads*/
+    struct list_elem child_list_elem;/*child list elem*/
+    bool is_waiting;                /* Bo*/
     struct list file_handler_list;  /* A list to store file handlers. */
     int fd;                         /* Accumulate fd and used to track the 
                                        current number of files opened. 
