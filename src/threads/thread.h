@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "vm/mmap.h"
 
 /* States in a thread's life cycle. */
 enum thread_status {
@@ -106,8 +107,6 @@ struct thread {
     int32_t recent_cpu;             /* Fixed-Point representation of Recent_cpu */
 
 /* Owned by userprog/process.c. */
-#ifdef USERPROG
-
     uint32_t *pagedir;              /* Page directory. */
     int return_status;              /* Return status*/
     struct thread *parent;          /* Parent thread*/
@@ -122,7 +121,9 @@ struct thread {
                                        current number of files opened. 
                                     */
 
-#endif
+    struct list sup_page_table;
+    int accu_mapid;
+    struct list vm_mfiles;
 
     /* Owned by thread.c. */
     unsigned magic; /* Detects stack overflow. */
@@ -187,6 +188,7 @@ int thread_get_load_avg(void);
 void thread_calc_load_avg(void);
 void update_BSD_variables(void);
 
-
+bool mfile_compare(const struct list_elem *first_, const struct list_elem *second_,
+                   void *aux UNUSED);
 
 #endif /* threads/thread.h */

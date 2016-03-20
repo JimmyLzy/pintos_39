@@ -5,9 +5,9 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include <stdbool.h>
+#include "vm/page.h"
 
-#include "filesys/filesys.h"
-#include "threads/synch.h"
+
 
 //number of system call types
 #define SYSCALL_NUM 13
@@ -20,9 +20,6 @@
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 
-/* code-segment lower bound */
-#define CODE_SEGMENT_BOTTON ((void *) 0x08048000)
-
 static int syscall_args_num[SYSCALL_NUM];
 
 static void syscall_handler(struct intr_frame *);
@@ -30,8 +27,6 @@ static void syscall_handler(struct intr_frame *);
 static void syscall_handler(struct intr_frame *f);
 
 static int* syscall_get_args(struct intr_frame *f, int syscall_num);
-
-static struct lock filesys_lock; /* File system lock. */
 
 void syscall_init(void) {
 
@@ -52,11 +47,14 @@ void syscall_init(void) {
     syscall_args_num[SYS_SEEK] = 2;
     syscall_args_num[SYS_TELL] = 1;
     syscall_args_num[SYS_CLOSE] = 1;
+    syscall_args_num[SYS_MMAP] = 2;
+    syscall_args_num[SYS_MUNMAP] = 1;
 
 }
 
 static void syscall_handler(struct intr_frame *f) {
 
+    //PANIC("got to syscall handler\n");
     struct thread *t = thread_current();
     void *uaddr = f-> esp;
 
@@ -116,6 +114,12 @@ static void syscall_handler(struct intr_frame *f) {
     case SYS_CLOSE:
         close(args[0]);
         break;
+    case SYS_MMAP:
+        f->eax = mmap((int)args[0], (const void *)args[1]);
+        break;
+    case SYS_MUNMAP:
+        munmap((int)args[0]);
+        break;
     default:
         break;
     }
@@ -174,6 +178,13 @@ void exit(int status) {
         close(fd);
         fd--;
     }
+//
+//    /*Unmap all the mapping and free all the mfiles*/
+//    int mapid = t->accu_mapid;
+//    while(mapid >= 0) {
+//        munmap(mapid);
+//        mapid--;
+//    }
 
     thread_exit();
 }
@@ -207,6 +218,10 @@ bool create (const char *file_path, unsigned initial_size) {
 
 int read(int fd, const void *buffer, unsigned size) {
 
+//    struct sup_page *sup_page = get_sup_page(buffer);
+//    if (!sup_page->writable) {
+//        exit(-1);
+//    }
     if (fd == STDIN_FILENO) {
         unsigned i;
         uint8_t *getc_buffer = (uint8_t *) buffer;
@@ -296,7 +311,7 @@ int open (const char *file_path) {
     int fd = -1;
     if(file != NULL) {
         struct thread *t = thread_current();
-        struct file_handler *fh_p = malloc(sizeof(struct file_handler));
+        struct file_handler *fh_p = (struct file_handler *)malloc(sizeof(struct file_handler));
         if (fh_p == NULL) {
             PANIC ("Allocation of memory of file handler fails.");
         }
@@ -419,6 +434,91 @@ void seek (int fd, unsigned position) {
     }
     lock_release(&filesys_lock);
     exit(-1);
+
+}
+
+mapid_t mmap(int fd, void *addr) {
+
+    size_t size = filesize(fd);
+    struct file *file = file_reopen(find_file(fd));
+
+    if(size <= 0 || file == NULL) {
+        return -1;
+    }
+    if(addr == NULL || addr == 0x0 || pg_ofs(addr) != 0) {
+        return -1;
+    }
+    if(fd == STDIN_FILENO || fd == STDOUT_FILENO) {
+        return -1;
+    }
+
+    size_t page_offeset;
+    void *end_addr = addr;
+
+
+    while(size > 0) {
+        size_t read_bytes;
+        size_t zero_bytes;
+
+        if(size >= PGSIZE) {
+            read_bytes = PGSIZE;
+            zero_bytes = 0;
+        } else {
+            read_bytes = size;
+            zero_bytes = size - PGSIZE;
+        }
+
+        /*Need to find the page and check if the page already mapped*/
+
+        if(get_sup_page(end_addr) != NULL) {
+            return -1;
+        }
+
+        init_sup_page(file, page_offeset, end_addr, read_bytes, zero_bytes, true);
+
+        page_offeset += PGSIZE;
+        size -= read_bytes;
+        end_addr += PGSIZE;
+        if (!is_user_vaddr(end_addr) || end_addr > CODE_SEGMENT_BOTTON) {
+             return -1;
+        }
+    }
+
+    struct thread *current = thread_current();
+    mapid_t mapid = current->accu_mapid + 1;
+    current->accu_mapid = mapid;
+
+    vm_add_mfile(mapid, fd, addr, end_addr);
+
+    return mapid;
+
+}
+
+void munmap(mapid_t mapping) {
+
+    struct vm_mfile *mfile = vm_find_mfile(mapping);
+
+    if(mfile == NULL) {
+        exit(-1);
+    }
+
+    void *start_addr = mfile->start_addr;
+    void *end_addr = mfile->end_addr;
+
+    while(start_addr != end_addr) {
+
+        struct sup_page *page = get_sup_page(start_addr);
+
+        if(page == NULL) {
+            continue;
+        }
+
+        if(page->loaded == true) {
+            free_sup_page(page);
+        }
+
+    }
+    vm_delete_mfile(mapping);
 
 }
 

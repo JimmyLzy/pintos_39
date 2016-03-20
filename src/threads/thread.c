@@ -19,6 +19,9 @@
 #include "userprog/process.h"
 #endif
 
+#include "vm/frame.h"
+#include "vm/mmap.h"
+
 /* Random value for struct thread's `magic' member.
  Used to detect stack overflow.  See the big comment at the top
  of thread.h for details. */
@@ -101,6 +104,7 @@ void thread_init(void) {
     list_init(&all_list);
     list_init(&sleep_thread_list);
 
+    frame_init();
     /* Set up a thread structure for the running thread. */
     initial_thread = running_thread();
     init_thread(initial_thread, "main", PRI_DEFAULT);
@@ -228,6 +232,15 @@ void thread_print_stats(void) {
             idle_ticks, kernel_ticks, user_ticks);
 }
 
+bool mfile_compare(const struct list_elem *first_,
+        const struct list_elem *second_, void *aux UNUSED) {
+    const struct vm_mfile *first = list_entry(first_, struct vm_mfile,
+            list_elem);
+    const struct vm_mfile *second = list_entry(second_, struct vm_mfile,
+            list_elem);
+    return first->mapid < second->mapid;
+}
+
 /* Creates a new kernel thread named NAME with the given initial
  PRIORITY, which executes FUNCTION passing AUX as the argument,
  and adds it to the ready queue.  Returns the thread identifier
@@ -271,7 +284,6 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
         t->nice = current_thread->nice;
         t->recent_cpu = current_thread->recent_cpu;
     }
-
 
     /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
@@ -672,13 +684,13 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     list_init(&t->donation_locks);
     list_init(&t->child_list);
 
-    //printf("============thread %s is initialising\n", t->name);
-    //#ifdef USERPROG
+    /*Initialise current process page table*/
+    list_init(&t->sup_page_table);
 
-        list_init(&t->file_handler_list);
-        t->fd = 1;
+    list_init(&t->file_handler_list);
+    t->fd = 1;
 
-    //#endif
+    list_init(&t->vm_mfiles);
 
     if (thread_mlfqs) {
         thread_calc_priority(t, NULL);
