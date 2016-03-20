@@ -441,7 +441,6 @@ mapid_t mmap(int fd, void *addr) {
 
     size_t size = filesize(fd);
     struct file *file = file_reopen(find_file(fd));
-
     if(size <= 0 || file == NULL) {
         return -1;
     }
@@ -451,6 +450,7 @@ mapid_t mmap(int fd, void *addr) {
     if(fd == STDIN_FILENO || fd == STDOUT_FILENO) {
         return -1;
     }
+
 
     size_t page_offeset;
     void *end_addr = addr;
@@ -476,12 +476,14 @@ mapid_t mmap(int fd, void *addr) {
 
         init_sup_page(file, page_offeset, end_addr, read_bytes, zero_bytes, true);
 
+        // if (!is_user_vaddr(end_addr) || end_addr > CODE_SEGMENT_BOTTON) {
+        //      return -1;
+        // }
+
         page_offeset += PGSIZE;
         size -= read_bytes;
         end_addr += PGSIZE;
-        if (!is_user_vaddr(end_addr) || end_addr > CODE_SEGMENT_BOTTON) {
-             return -1;
-        }
+
     }
 
     struct thread *current = thread_current();
@@ -505,7 +507,7 @@ void munmap(mapid_t mapping) {
     void *start_addr = mfile->start_addr;
     void *end_addr = mfile->end_addr;
 
-    while(start_addr != end_addr) {
+    while(start_addr < end_addr) {
 
         struct sup_page *page = get_sup_page(start_addr);
 
@@ -516,6 +518,7 @@ void munmap(mapid_t mapping) {
         if(page->loaded == true) {
             free_sup_page(page);
         }
+        start_addr += PGSIZE;
 
     }
     vm_delete_mfile(mapping);
