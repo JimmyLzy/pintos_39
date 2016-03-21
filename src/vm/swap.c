@@ -1,7 +1,5 @@
 #include "vm/swap.h"
-#include "devices/block.h"
-#include "threads/vaddr.h"
-#include <bitmap.h>
+
 
 #define PAGE_BLOCKS (PGSIZE / BLOCK_SECTOR_SIZE)
 #define BITMAP_SIZE (block_size(block) / PAGE_BLOCKS)
