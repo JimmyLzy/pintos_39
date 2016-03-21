@@ -14,11 +14,11 @@
 #include "vm/page.h"
 #include "vm/swap.h"
 
-bool init_sup_page(struct file *file, off_t ofs, uint8_t *upage,
+struct sup_page* init_sup_page(struct file *file, off_t ofs, uint8_t *upage,
         uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
     struct sup_page *p = (struct sup_page *) malloc(sizeof(struct sup_page));
     if (p == NULL) {
-        return false;
+        return NULL;
     }
 //    struct file *f = (struct file *) malloc(sizeof(struct file));
 //    f = file;
@@ -31,7 +31,7 @@ bool init_sup_page(struct file *file, off_t ofs, uint8_t *upage,
     p->zero_bytes = zero_bytes;
     p->loaded = false;
     list_push_back(&thread_current()->sup_page_table, &p->page_elem);
-    return true;
+    return p;
 }
 
 struct sup_page* get_sup_page(void *addr) {
@@ -90,6 +90,18 @@ bool load_file(struct sup_page *sup_page) {
 
     sup_page->loaded = true;
 //    intr_set_level (old_level);
+    return true;
+}
+
+
+bool load_swap(struct sup_page *sup_page) {
+    void *f = frame_get_page(PAL_USER, sup_page);
+    if (!install_page(sup_page->upage, f, sup_page->writable)) {
+        frame_free_page(f);
+        return false;
+    }
+    swap_read(f, sup_page->pos);
+    sup_page->loaded = true;
     return true;
 }
 

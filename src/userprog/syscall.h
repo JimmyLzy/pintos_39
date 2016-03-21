@@ -50,4 +50,9 @@ mapid_t mmap(int fd, void *addr);
 
 void munmap(mapid_t mapping);
 
+struct sup_page* check_valid_ptr(const void *vaddr, void* esp);
+
+void check_valid_buffer (void* buffer, unsigned size, void* esp,
+             bool to_write);
+
 #endif /* userprog/syscall.h */

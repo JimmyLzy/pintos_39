@@ -4,7 +4,8 @@
 
 void frame_init();
 void *frame_get_page(enum palloc_flags flags, struct sup_page *upage);
-void frame_free_page (void *page);
+void frame_free_page (void *kpage);
+void *frame_eviction(enum palloc_flags flags);
 
 
 

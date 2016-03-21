@@ -7,8 +7,6 @@
 #include <stdbool.h>
 #include "vm/page.h"
 
-
-
 //number of system call types
 #define SYSCALL_NUM 13
 //maximum number of arguments of system calls
@@ -56,11 +54,11 @@ static void syscall_handler(struct intr_frame *f) {
 
     //PANIC("got to syscall handler\n");
     struct thread *t = thread_current();
-    void *uaddr = f-> esp;
+    void *uaddr = f->esp;
 
     check_ptr_in_user_memory((const void *) uaddr);
 
-    int syscall_num = *(int *) pagedir_get_page(t -> pagedir, uaddr);
+    int syscall_num = *(int *) pagedir_get_page(t->pagedir, uaddr);
 
     if (syscall_num < SYS_HALT || syscall_num > SYS_MUNMAP) {
         thread_exit();
@@ -78,35 +76,42 @@ static void syscall_handler(struct intr_frame *f) {
         break;
     case SYS_EXEC:
         args[0] = syscall_get_kernel_ptr((const char *) args[0]);
-        f->eax = exec((const char*)args[0]);
+        f->eax = exec((const char*) args[0]);
         break;
     case SYS_WAIT:
         f->eax = wait(args[0]);
         break;
     case SYS_CREATE:
         args[0] = syscall_get_kernel_ptr((const char *) args[0]);
-        f->eax = create((const char *)args[0], args[1]);
+        f->eax = create((const char *) args[0], args[1]);
         break;
     case SYS_REMOVE:
         f->eax = remove((const char *) args[0]);
         break;
     case SYS_OPEN:
         args[0] = syscall_get_kernel_ptr((const char *) args[0]);
-        f->eax = open((const char *)args[0]);
+        f->eax = open((const char *) args[0]);
         break;
     case SYS_FILESIZE:
         f->eax = filesize(args[0]);
         break;
     case SYS_READ:
+
+        //check_valid_buffer((void *) args[1], (unsigned) args[2], f->esp, true);
         args[1] = syscall_get_kernel_ptr((const char *) args[1]);
-        f->eax = read(args[0], (void *)args[1], args[2]);
+
+        f->eax = read(args[0], (void *) args[1], args[2]);
         break;
     case SYS_WRITE:
+        //check_valid_buffer((void *) args[1], (unsigned) args[2], f->esp, false);
+
         args[1] = syscall_get_kernel_ptr((const char *) args[1]);
-        f->eax = write((int)args[0], (const void *)args[1], (unsigned)args[2]);
+
+        f->eax = write((int) args[0], (const void *) args[1],
+                (unsigned) args[2]);
         break;
     case SYS_SEEK:
-        f->eax = seek((int)args[0], (unsigned)args[1]);
+        f->eax = seek((int) args[0], (unsigned) args[1]);
         break;
     case SYS_TELL:
         f->eax = tell((const char *) args[0]);
@@ -115,10 +120,10 @@ static void syscall_handler(struct intr_frame *f) {
         close(args[0]);
         break;
     case SYS_MMAP:
-        f->eax = mmap((int)args[0], (const void *)args[1]);
+        f->eax = mmap((int) args[0], (const void *) args[1]);
         break;
     case SYS_MUNMAP:
-        munmap((int)args[0]);
+        munmap((int) args[0]);
         break;
     default:
         break;
@@ -145,8 +150,8 @@ void check_ptr_in_user_memory(const void *vaddr) {
 static int* syscall_get_args(struct intr_frame *f, int syscall_num) {
     int *args = (int*) malloc(MAX_ARGS_NUM);
     if (args == NULL) {
-        PANIC ("Allocation of memory of arguments fails.");
-    }    
+        PANIC("Allocation of memory of arguments fails.");
+    }
     int args_num = syscall_args_num[syscall_num];
     int i;
     int *ptr;
@@ -158,6 +163,49 @@ static int* syscall_get_args(struct intr_frame *f, int syscall_num) {
     return args;
 }
 
+void check_valid_buffer(void* buffer, unsigned size, void* esp,
+bool to_write) {
+    unsigned i;
+    char* local_buffer = (char *) buffer;
+    for (i = 0; i < size; i++) {
+        struct sup_page *spage = check_valid_ptr((const void*) local_buffer,
+                esp);
+        if (spage && to_write) {
+            if (!spage->writable) {
+                exit(-1);
+            }
+        }
+        local_buffer++;
+    }
+}
+
+struct sup_page* check_valid_ptr(const void *vaddr, void* esp) {
+    if (!is_user_vaddr(vaddr) || vaddr < CODE_SEGMENT_BOTTON) {
+        printf("vaddr: %p\n",vaddr);
+        exit(-1);
+    }
+    bool load = false;
+    struct sup_page *spage = get_sup_page((void *) vaddr);
+    if (spage && !spage->loaded) {
+        switch (spage->type) {
+        case FILE:
+            load = load_file(spage);
+            break;
+        case SWAP:
+            //load = load_swap(spage);
+            break;
+        default:
+            PANIC("default\n");
+        }
+        load = spage->loaded;
+    } else if (vaddr >= esp - 32) {
+        load = stack_growth((void *) vaddr);
+    }
+    if (!load) {
+        exit(-1);
+    }
+    return spage;
+}
 
 void halt(void) {
     shutdown_power_off();
@@ -174,7 +222,7 @@ void exit(int status) {
 
     /*Close all the files and free all the file handler*/
     int fd = t->fd;
-    while(fd > 1) {
+    while (fd > 1) {
         close(fd);
         fd--;
     }
@@ -200,12 +248,12 @@ int wait(pid_t pid) {
 }
 
 /* Create a file with the given file path and initial size
-   by calling the filesys_create() method. Return true upon
-   success. */
-bool create (const char *file_path, unsigned initial_size) {
+ by calling the filesys_create() method. Return true upon
+ success. */
+bool create(const char *file_path, unsigned initial_size) {
 
-    if(file_path == NULL) {
-      exit(-1);
+    if (file_path == NULL) {
+        exit(-1);
     }
 
     lock_acquire(&filesys_lock);
@@ -240,7 +288,6 @@ int read(int fd, const void *buffer, unsigned size) {
     return read_size;
 }
 
-
 int write(int fd, const void *buffer, unsigned size) {
 
     if (fd == 0) {
@@ -263,7 +310,6 @@ int write(int fd, const void *buffer, unsigned size) {
         return written_size;
     } else {
 
-
         struct file* file = find_file(fd);
 
         if (file == NULL) {
@@ -279,11 +325,11 @@ int write(int fd, const void *buffer, unsigned size) {
 }
 
 /* Remove the file with the given file path by calling the
-   filesys_remove() method. Return true upon success. */
-bool remove (const char *file_path) {
+ filesys_remove() method. Return true upon success. */
+bool remove(const char *file_path) {
 
-    if(file_path == NULL) {
-      exit(-1);
+    if (file_path == NULL) {
+        exit(-1);
     }
 
     lock_acquire(&filesys_lock);
@@ -295,13 +341,13 @@ bool remove (const char *file_path) {
 }
 
 /* Open the file with the given file path by calling the
-   filesys_open() method. Store the opened file and its 
-   file descripter to a file handler in heap and push the 
-   handler to the back of file handler list. */
-int open (const char *file_path) {
+ filesys_open() method. Store the opened file and its
+ file descripter to a file handler in heap and push the
+ handler to the back of file handler list. */
+int open(const char *file_path) {
 
-    if(file_path == NULL) {
-      exit(-1);
+    if (file_path == NULL) {
+        exit(-1);
     }
 
     lock_acquire(&filesys_lock);
@@ -309,11 +355,12 @@ int open (const char *file_path) {
     struct file *file = filesys_open(file_path);
 
     int fd = -1;
-    if(file != NULL) {
+    if (file != NULL) {
         struct thread *t = thread_current();
-        struct file_handler *fh_p = (struct file_handler *)malloc(sizeof(struct file_handler));
+        struct file_handler *fh_p = (struct file_handler *) malloc(
+                sizeof(struct file_handler));
         if (fh_p == NULL) {
-            PANIC ("Allocation of memory of file handler fails.");
+            PANIC("Allocation of memory of file handler fails.");
         }
         t->fd++;
         fh_p->fd = t->fd;
@@ -338,14 +385,14 @@ int filesize(int fd) {
 }
 
 /* Find the file with given file descripter in the file handler list
-   by calling find_file_handler(). Return the file on success
-   , otherwise return null.
+ by calling find_file_handler(). Return the file on success
+ , otherwise return null.
  */
 struct file *find_file(int fd) {
 
     struct file_handler *file_handler = find_file_handler(fd);
 
-    if(file_handler != NULL) {
+    if (file_handler != NULL) {
         return file_handler->file;
     }
     exit(-1);
@@ -353,8 +400,8 @@ struct file *find_file(int fd) {
 }
 
 /* Loop through the file_handler_list of the current thread and find
-   the file handler by comparing the file descriptor. Return the file
-   handler on success, otherwise return null.
+ the file handler by comparing the file descriptor. Return the file
+ handler on success, otherwise return null.
  */
 struct file_handler *find_file_handler(int fd) {
 
@@ -362,15 +409,14 @@ struct file_handler *find_file_handler(int fd) {
     struct thread *cur = thread_current();
     struct file_handler *fh;
 
-
-    if(!list_empty(&cur->file_handler_list)) {
-      for (e = list_begin(&cur->file_handler_list); e != list_end(&cur->file_handler_list);
-              e = list_next(e)) {
-          fh = list_entry(e, struct file_handler, elem);
-          if (fh->fd == fd) {
-              return fh;
-          }
-       }
+    if (!list_empty(&cur->file_handler_list)) {
+        for (e = list_begin(&cur->file_handler_list);
+                e != list_end(&cur->file_handler_list); e = list_next(e)) {
+            fh = list_entry(e, struct file_handler, elem);
+            if (fh->fd == fd) {
+                return fh;
+            }
+        }
     }
 
     return NULL;
@@ -378,20 +424,20 @@ struct file_handler *find_file_handler(int fd) {
 }
 
 /*Find the file using file descriptor. Close the file by calling file_close()
-  and remove the file handler from the list when successfully finding the file.
-  Also free the file handler on success.
-*/
-void close (int fd) {
+ and remove the file handler from the list when successfully finding the file.
+ Also free the file handler on success.
+ */
+void close(int fd) {
 
     lock_acquire(&filesys_lock);
     struct file_handler *file_handler = find_file_handler(fd);
-    if(file_handler != NULL) {
-      struct file *file = file_handler->file;
-      if(file != NULL) {
-         file_close(file);
-         list_remove(&file_handler->elem);
-         free(file_handler);
-      }
+    if (file_handler != NULL) {
+        struct file *file = file_handler->file;
+        if (file != NULL) {
+            file_close(file);
+            list_remove(&file_handler->elem);
+            free(file_handler);
+        }
     }
 
     lock_release(&filesys_lock);
@@ -399,11 +445,11 @@ void close (int fd) {
 }
 
 /*Find the file using file descriptor. Return the position of the next byte to
-  be read or written of the file by calling file_tell() on success. Otherwise,
-  exit the process with -1.
-*/
+ be read or written of the file by calling file_tell() on success. Otherwise,
+ exit the process with -1.
+ */
 
-unsigned tell (int fd) {
+unsigned tell(int fd) {
 
     lock_acquire(&filesys_lock);
 
@@ -419,10 +465,10 @@ unsigned tell (int fd) {
 }
 
 /*Find the file using file descriptor. Changes the next byte to be read or written 
-  in the file to position by calling file_seek(), expressed in bytes from the 
-  beginning of the file on success. Otherwise, exit the process with -1; 
-*/
-void seek (int fd, unsigned position) {
+ in the file to position by calling file_seek(), expressed in bytes from the
+ beginning of the file on success. Otherwise, exit the process with -1;
+ */
+void seek(int fd, unsigned position) {
 
     lock_acquire(&filesys_lock);
 
@@ -441,26 +487,24 @@ mapid_t mmap(int fd, void *addr) {
 
     size_t size = filesize(fd);
     struct file *file = file_reopen(find_file(fd));
-    if(size <= 0 || file == NULL) {
+    if (size <= 0 || file == NULL) {
         return -1;
     }
-    if(addr == NULL || addr == 0x0 || pg_ofs(addr) != 0) {
+    if (addr == NULL || addr == 0x0 || pg_ofs(addr) != 0) {
         return -1;
     }
-    if(fd == STDIN_FILENO || fd == STDOUT_FILENO) {
+    if (fd == STDIN_FILENO || fd == STDOUT_FILENO) {
         return -1;
     }
-
 
     size_t page_offeset;
     void *end_addr = addr;
 
-
-    while(size > 0) {
+    while (size > 0) {
         size_t read_bytes;
         size_t zero_bytes;
 
-        if(size >= PGSIZE) {
+        if (size >= PGSIZE) {
             read_bytes = PGSIZE;
             zero_bytes = 0;
         } else {
@@ -470,11 +514,12 @@ mapid_t mmap(int fd, void *addr) {
 
         /*Need to find the page and check if the page already mapped*/
 
-        if(get_sup_page(end_addr) != NULL) {
+        if (get_sup_page(end_addr) != NULL) {
             return -1;
         }
 
-        init_sup_page(file, page_offeset, end_addr, read_bytes, zero_bytes, true);
+        struct sup_page *p = init_sup_page(file, page_offeset, end_addr, read_bytes, zero_bytes,
+                true);
 
         // if (!is_user_vaddr(end_addr) || end_addr > CODE_SEGMENT_BOTTON) {
         //      return -1;
@@ -500,22 +545,22 @@ void munmap(mapid_t mapping) {
 
     struct vm_mfile *mfile = vm_find_mfile(mapping);
 
-    if(mfile == NULL) {
+    if (mfile == NULL) {
         exit(-1);
     }
 
     void *start_addr = mfile->start_addr;
     void *end_addr = mfile->end_addr;
 
-    while(start_addr < end_addr) {
+    while (start_addr < end_addr) {
 
         struct sup_page *page = get_sup_page(start_addr);
 
-        if(page == NULL) {
+        if (page == NULL) {
             continue;
         }
 
-        if(page->loaded == true) {
+        if (page->loaded == true) {
             free_sup_page(page);
         }
         start_addr += PGSIZE;
