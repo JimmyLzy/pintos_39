@@ -19,6 +19,7 @@
 #include "userprog/process.h"
 #endif
 
+#include "vm/page.h"
 #include "vm/frame.h"
 #include "vm/mmap.h"
 
@@ -103,6 +104,7 @@ void thread_init(void) {
     list_init(&ready_list);
     list_init(&all_list);
     list_init(&sleep_thread_list);
+    lock_init(&page_lock);
 
     frame_init();
     /* Set up a thread structure for the running thread. */

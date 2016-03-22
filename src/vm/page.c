@@ -7,6 +7,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
 #include "userprog/syscall.h"
@@ -20,8 +21,6 @@ struct sup_page* init_sup_page(struct file *file, off_t ofs, uint8_t *upage,
     if (p == NULL) {
         return NULL;
     }
-//    struct file *f = (struct file *) malloc(sizeof(struct file));
-//    f = file;
     p->type = FILE;
     p->writable = writable;
     p->upage = upage;
@@ -30,7 +29,9 @@ struct sup_page* init_sup_page(struct file *file, off_t ofs, uint8_t *upage,
     p->read_bytes = read_bytes;
     p->zero_bytes = zero_bytes;
     p->loaded = false;
+    lock_acquire(&page_lock);
     list_push_back(&thread_current()->sup_page_table, &p->page_elem);
+    lock_release(&page_lock);
     return p;
 }
 
@@ -38,7 +39,8 @@ struct sup_page* get_sup_page(void *addr) {
     struct sup_page *spage;
     void *closest_page = pg_round_down(addr);
 
-    enum intr_level old_level = intr_disable();
+   // enum intr_level old_level = intr_disable();
+    lock_acquire(&page_lock);
     struct list_elem *e;
     struct thread *cur = thread_current();
 
@@ -47,12 +49,14 @@ struct sup_page* get_sup_page(void *addr) {
                 e != list_end(&cur->sup_page_table); e = list_next(e)) {
             spage = list_entry(e, struct sup_page, page_elem);
             if (spage->upage == closest_page) {
-                intr_set_level (old_level);
+                lock_release(&page_lock);
+                //intr_set_level (old_level);
                 return spage;
             }
         }
     }
-    intr_set_level(old_level);
+    lock_release(&page_lock);
+   // intr_set_level(old_level);
     return NULL;
 }
 

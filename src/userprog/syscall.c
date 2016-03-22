@@ -192,7 +192,7 @@ struct sup_page* check_valid_ptr(const void *vaddr, void* esp) {
             load = load_file(spage);
             break;
         case SWAP:
-            //load = load_swap(spage);
+            load = load_swap(spage);
             break;
         default:
             PANIC("default\n");

@@ -9,10 +9,13 @@
 #define MMAP 2
 #define STACK_LIMIT 8388608
 
+struct lock page_lock;
+
 struct sup_page {
     int type;
     bool writable;
     void *upage;
+    void *kpage;
     struct file file;
     size_t offset;
     size_t read_bytes;
