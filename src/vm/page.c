@@ -124,7 +124,9 @@ bool stack_growth(void *addr) {
             PANIC("install page failed\n");
             return false;
         }
+        lock_acquire(&page_lock);
         list_push_back(&thread_current()->sup_page_table, &p->page_elem);
+        lock_release(&page_lock);
         return true;
     } else {
         return false;
@@ -133,7 +135,9 @@ bool stack_growth(void *addr) {
 
 /*Removed sup_page from sup_page_table and free memory*/
 void free_sup_page(struct sup_page *spage) {
+    lock_acquire(&page_lock);
     list_remove(&spage->page_elem);
+    lock_release(&page_lock);
     free(spage);
 }
 
