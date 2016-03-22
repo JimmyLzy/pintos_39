@@ -52,7 +52,6 @@ void syscall_init(void) {
 
 static void syscall_handler(struct intr_frame *f) {
 
-    //PANIC("got to syscall handler\n");
     struct thread *t = thread_current();
     void *uaddr = f->esp;
 
@@ -572,17 +571,3 @@ void munmap(mapid_t mapping) {
 
 }
 
-///* Tasks 2 and later. */
-//SYS_HALT,                   /* Halt the operating system. */
-//SYS_EXIT,                   /* Terminate this process. */
-//SYS_EXEC,                   /* Start another process. */
-//SYS_WAIT,                   /* Wait for a child process to die. */
-//SYS_CREATE,                 /* Create a file. */
-//SYS_REMOVE,                 /* Delete a file. */
-//SYS_OPEN,                   /* Open a file. */
-//SYS_FILESIZE,               /* Obtain a file's size. */
-//SYS_READ,                   /* Read from a file. */
-//SYS_WRITE,                  /* Write to a file. */
-//SYS_SEEK,                   /* Change position in a file. */
-//SYS_TELL,                   /* Report current position in a file. */
-//SYS_CLOSE,                  /* Close a file. */
