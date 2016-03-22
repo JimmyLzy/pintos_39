@@ -7,35 +7,12 @@ void *frame_get_page(enum palloc_flags flags, struct sup_page *upage);
 void frame_free_page (void *kpage);
 void *frame_eviction(enum palloc_flags flags);
 
-
-
 struct frame {
-    void *frame;
-    struct sup_page *page;
-    struct thread* thread;
-    struct list_elem frame_elem;
+    void *frame;                   /*The frame being obtained*/
+    struct sup_page *page;         /*The sup_page in the frame*/
+    struct thread* thread;         /*The process belong to this frame*/
+    struct list_elem frame_elem;   /*List elem used to access the frame_list*/
 
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #endif

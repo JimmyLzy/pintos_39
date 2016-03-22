@@ -15,6 +15,7 @@
 #include "vm/page.h"
 #include "vm/swap.h"
 
+/*Initialise a sup_page giving file, offset, upage, read_bytes and zero_bytes*/
 struct sup_page* init_sup_page(struct file *file, off_t ofs, uint8_t *upage,
         uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
     struct sup_page *p = (struct sup_page *) malloc(sizeof(struct sup_page));
@@ -35,11 +36,11 @@ struct sup_page* init_sup_page(struct file *file, off_t ofs, uint8_t *upage,
     return p;
 }
 
+/*Find a sup_page from sup_page_table using upage addr*/
 struct sup_page* get_sup_page(void *addr) {
     struct sup_page *spage;
     void *closest_page = pg_round_down(addr);
 
-   // enum intr_level old_level = intr_disable();
     lock_acquire(&page_lock);
     struct list_elem *e;
     struct thread *cur = thread_current();
@@ -50,16 +51,15 @@ struct sup_page* get_sup_page(void *addr) {
             spage = list_entry(e, struct sup_page, page_elem);
             if (spage->upage == closest_page) {
                 lock_release(&page_lock);
-                //intr_set_level (old_level);
                 return spage;
             }
         }
     }
     lock_release(&page_lock);
-   // intr_set_level(old_level);
     return NULL;
 }
 
+/*Load a sup_page with type FILE*/
 bool load_file(struct sup_page *sup_page) {
     /* Get a page of memory. */
     uint8_t *kpage;
@@ -71,8 +71,6 @@ bool load_file(struct sup_page *sup_page) {
     if (kpage == NULL) {
         return false;
     }
-
-//    enum intr_level old_level = intr_disable ();
 
     /* Load this page. */
     if (sup_page->read_bytes > 0) {
@@ -93,11 +91,10 @@ bool load_file(struct sup_page *sup_page) {
     }
 
     sup_page->loaded = true;
-//    intr_set_level (old_level);
     return true;
 }
 
-
+/*Load a sup_page with type SWAP*/
 bool load_swap(struct sup_page *sup_page) {
     void *f = frame_get_page(PAL_USER, sup_page);
     if (!install_page(sup_page->upage, f, sup_page->writable)) {
@@ -109,6 +106,7 @@ bool load_swap(struct sup_page *sup_page) {
     return true;
 }
 
+/*Grow stack size*/
 bool stack_growth(void *addr) {
     void *upage = pg_round_down(addr);
 
@@ -133,6 +131,7 @@ bool stack_growth(void *addr) {
     }
 }
 
+/*Removed sup_page from sup_page_table and free memory*/
 void free_sup_page(struct sup_page *spage) {
     list_remove(&spage->page_elem);
     free(spage);

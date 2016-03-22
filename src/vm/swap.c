@@ -1,12 +1,12 @@
 #include "vm/swap.h"
 
 
-#define PAGE_BLOCKS (PGSIZE / BLOCK_SECTOR_SIZE)
-#define BITMAP_SIZE (block_size(block) / PAGE_BLOCKS)
+#define PAGE_BLOCKS (PGSIZE / BLOCK_SECTOR_SIZE)        /*Number of blocks in one page size*/
+#define BITMAP_SIZE (block_size(block) / PAGE_BLOCKS)   /*The size of one bitmap*/
 
-struct block *block;
+struct block *block;                                    /*Block used for swap space*/
 
-struct bitmap *bitmap;
+struct bitmap *bitmap;                                  /*Bitmap used to indicate if swap spaces are empty*/
 
 void init_swap(void) {
     block = block_get_role(BLOCK_SWAP);

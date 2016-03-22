@@ -96,17 +96,13 @@ static void syscall_handler(struct intr_frame *f) {
         f->eax = filesize(args[0]);
         break;
     case SYS_READ:
-
-        //check_valid_buffer((void *) args[1], (unsigned) args[2], f->esp, true);
+        //check_valid_ptr((void *) args[1], f->esp);
         args[1] = syscall_get_kernel_ptr((const char *) args[1]);
-
         f->eax = read(args[0], (void *) args[1], args[2]);
         break;
     case SYS_WRITE:
-        //check_valid_buffer((void *) args[1], (unsigned) args[2], f->esp, false);
-
+        //check_valid_ptr((void *) args[1], f->esp);
         args[1] = syscall_get_kernel_ptr((const char *) args[1]);
-
         f->eax = write((int) args[0], (const void *) args[1],
                 (unsigned) args[2]);
         break;
@@ -161,22 +157,6 @@ static int* syscall_get_args(struct intr_frame *f, int syscall_num) {
         args[i] = *ptr;
     }
     return args;
-}
-
-void check_valid_buffer(void* buffer, unsigned size, void* esp,
-bool to_write) {
-    unsigned i;
-    char* local_buffer = (char *) buffer;
-    for (i = 0; i < size; i++) {
-        struct sup_page *spage = check_valid_ptr((const void*) local_buffer,
-                esp);
-        if (spage && to_write) {
-            if (!spage->writable) {
-                exit(-1);
-            }
-        }
-        local_buffer++;
-    }
 }
 
 struct sup_page* check_valid_ptr(const void *vaddr, void* esp) {
