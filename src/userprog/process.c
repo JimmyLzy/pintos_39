@@ -637,16 +637,6 @@ setup_stack (void **esp)
   } else {
       PANIC("stack growth failed\n");
   }
-
-//  kpage = frame_get_page (PAL_USER | PAL_ZERO);
-//  if (kpage != NULL)
-//    {
-//      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-//      if (success)
-//        *esp = PHYS_BASE;
-//      else
-//          frame_free_page (kpage);
-//    }
   return success;
 }
 
