@@ -226,13 +226,6 @@ void exit(int status) {
         close(fd);
         fd--;
     }
-//
-//    /*Unmap all the mapping and free all the mfiles*/
-//    int mapid = t->accu_mapid;
-//    while(mapid >= 0) {
-//        munmap(mapid);
-//        mapid--;
-//    }
 
     thread_exit();
 }
@@ -483,21 +476,45 @@ void seek(int fd, unsigned position) {
 
 }
 
+/* Allocate consecutive supplemental pages for the mapped file starting
+   from the address addr.
+ */
 mapid_t mmap(int fd, void *addr) {
 
+    /*Find the file by searching the file_handler list using fd and
+      reopen the file.
+    */
     size_t size = filesize(fd);
     struct file *file = file_reopen(find_file(fd));
+
+    /*Checking if the file is NULL and the file size is less
+      than an equal to 0. Return -1 when one of them is true.
+    */
+
     if (size <= 0 || file == NULL) {
         return -1;
     }
-    if (addr == NULL || addr == 0x0 || pg_ofs(addr) != 0) {
+
+    /*Checking if the address is 0 and the address is page-aligned. 
+      Return -1 when one of them is true.
+    */
+
+    if (addr == 0x0 || pg_ofs(addr) != 0) {
         return -1;
     }
+
+    /*Checking if the fd used is the ones preserved for the system usage.
+      Return -1 when it's true.
+    */
+
     if (fd == STDIN_FILENO || fd == STDOUT_FILENO) {
         return -1;
     }
 
-    size_t page_offeset;
+    /* Allocate consecutive supplemental pages for the mapped file starting
+       from the address addr.
+    */
+    size_t page_offset;
     void *end_addr = addr;
 
     while (size > 0) {
@@ -512,24 +529,25 @@ mapid_t mmap(int fd, void *addr) {
             zero_bytes = size - PGSIZE;
         }
 
-        /*Need to find the page and check if the page already mapped*/
 
         if (get_sup_page(end_addr) != NULL) {
             return -1;
         }
 
-        struct sup_page *p = init_sup_page(file, page_offeset, end_addr, read_bytes, zero_bytes,
+        struct sup_page *p = init_sup_page(file, page_offset, end_addr, read_bytes, zero_bytes,
                 true);
 
-        // if (!is_user_vaddr(end_addr) || end_addr > CODE_SEGMENT_BOTTON) {
-        //      return -1;
-        // }
 
-        page_offeset += PGSIZE;
+        page_offset += PGSIZE;
         size -= read_bytes;
         end_addr += PGSIZE;
 
     }
+
+    /*Allocate a new vm_mfile for the mapped file and increase the
+      accumulate mapid of the current thread by 1. Also insert
+      this vm_mfile into the vm_mfiles list of the current thread.
+    */
 
     struct thread *current = thread_current();
     mapid_t mapid = current->accu_mapid + 1;
@@ -541,6 +559,10 @@ mapid_t mmap(int fd, void *addr) {
 
 }
 
+/* Find the mapped file by using mapping id and free
+   all the supplemental page tables allocated and this
+   vm_mfile. Also delete them from the corresponding list.
+ */
 void munmap(mapid_t mapping) {
 
     struct vm_mfile *mfile = vm_find_mfile(mapping);
