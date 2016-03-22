@@ -693,6 +693,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->fd = 1;
 
     list_init(&t->vm_mfiles);
+    vm_init_mfile();
 
     if (thread_mlfqs) {
         thread_calc_priority(t, NULL);
