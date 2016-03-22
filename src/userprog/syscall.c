@@ -505,7 +505,7 @@ mapid_t mmap(int fd, void *addr) {
             zero_bytes = 0;
         } else {
             read_bytes = size;
-            zero_bytes = size - PGSIZE;
+            zero_bytes = PGSIZE - size;
         }
 
 
