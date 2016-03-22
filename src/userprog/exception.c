@@ -158,7 +158,7 @@ static void page_fault(struct intr_frame *f) {
             success = load_file(sup_page);
             break;
         case SWAP:
-            //success = load_swap(sup_page);
+            success = load_swap(sup_page);
             break;
         }
     } else if (fault_addr >= f->esp - 32) {

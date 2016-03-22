@@ -60,7 +60,7 @@ void *frame_eviction(enum palloc_flags flags) {
     lock_acquire(&frame_lock);
     struct frame *f = list_entry(list_begin(&frame_list), struct frame,
             frame_elem);
-    lock_release(&frame_lock);
+
     if (f->page->type == MMAP) {
         lock_acquire(&filesys_lock);
         file_write_at(&(f->page)->file, f->frame, f->page->read_bytes, f->page->offset);
@@ -71,6 +71,7 @@ void *frame_eviction(enum palloc_flags flags) {
     }
     f->page->loaded = false;
     frame_free_page(f->frame);
+    lock_release(&frame_lock);
     return palloc_get_page(flags);
 }
 

@@ -36,16 +36,18 @@ vm_find_mfile(mapid_t mapid) {
     struct vm_mfile *mfile;
     struct thread *cur = thread_current();
     struct list_elem *e;
-
+    lock_acquire(&mfile_lock);
     if(!list_empty(&cur->vm_mfiles)) {
       for (e = list_begin(&cur->vm_mfiles); e != list_end(&cur->vm_mfiles);
               e = list_next(e)) {
           mfile = list_entry(e, struct vm_mfile, list_elem);
           if (mfile->mapid == mapid) {
+              lock_release(&mfile_lock);
               return mfile;
           }
        }
     }
+    lock_release(&mfile_lock);
     return NULL;
 }
 
@@ -55,7 +57,7 @@ vm_find_mfile(mapid_t mapid) {
 bool
 vm_delete_mfile(mapid_t mapid) {
     struct vm_mfile *mfile = vm_find_mfile(mapid);
-    if (mfile = NULL) {
+    if (mfile == NULL) {
         return false;
     }
 
